@@ -518,11 +518,6 @@ async function main() {
         .default("https://ic0.app")
         .env("IC_NETWORK")
     )
-    .addOption(
-      new Option("--subaccount <subaccount>", "The subaccount to use.").default(
-        0
-      )
-    )
     .addCommand(
       new Command("info")
         .option("-n --no-show-on-device")
