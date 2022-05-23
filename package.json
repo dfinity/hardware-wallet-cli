@@ -1,5 +1,5 @@
 {
-  "name": "ic-hardware-wallet-cli",
+  "name": "@dfinity/hardware-wallet-cli",
   "version": "0.1.0",
   "description": "A CLI for the Internet Computer app on ledger hardware wallets.",
   "main": "./build/index.js",
