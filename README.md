@@ -2,10 +2,11 @@
 
 A CLI to interact with the Internet Computer App on Ledger Nano S/X devices.
 
-## Installation
+## Quick Start
 
-1. Install `npm >= 6.14`.
-2. Install the CLI: `npm install -g @dfinity/hardware-wallet-cli`
+* Install `npm >= 6.14`.
+* Install the CLI: `npm install -g @dfinity/hardware-wallet-cli`
+* Run the CLI: `ic-hardware-wallet --help`
 
 ## USB connection issues with Ledger Live
 
