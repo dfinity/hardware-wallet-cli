@@ -15,6 +15,8 @@ import {
   InsufficientAmountError,
   InsufficientFundsError,
 } from "@dfinity/nns";
+import { Principal } from "@dfinity/principal";
+import type { Secp256k1PublicKey } from "src/ledger/secp256k1";
 import { Agent, AnonymousIdentity, HttpAgent, Identity } from "@dfinity/agent";
 import chalk from "chalk";
 
@@ -24,7 +26,7 @@ import "node-window-polyfill/register";
 // Add polyfill for `window.fetch` for agent-js to work.
 // @ts-ignore (no types are available)
 import fetch from "node-fetch";
-import { Principal } from "@dfinity/principal";
+
 global.fetch = fetch;
 window.fetch = fetch;
 
@@ -285,10 +287,20 @@ async function listNeurons() {
   }
 }
 
+const buf2hex = (buffer: ArrayBuffer): string => {
+  return [...new Uint8Array(buffer)]
+    .map((x) => x.toString(16).padStart(2, "0"))
+    .join("");
+};
+
 /**
  * Fetches the balance of the main account on the wallet.
  */
-async function claimNeurons(hexPubKey: string) {
+async function claimNeurons() {
+  const identity = await LedgerIdentity.create();
+
+  const bufferKey = identity.getPublicKey() as Secp256k1PublicKey;
+  const hexPubKey = buf2hex(bufferKey.toRaw());
   const isHex = hexPubKey.match("^[0-9a-fA-F]+$");
   if (!isHex) {
     throw new Error(`${hexPubKey} is not a hex string.`);
@@ -298,7 +310,6 @@ async function claimNeurons(hexPubKey: string) {
     throw new Error(`The key must be >= 130 characters and <= 150 characters.`);
   }
 
-  const identity = await LedgerIdentity.create();
   const governance = await GenesisTokenCanister.create({
     agent: await getAgent(identity),
   });
@@ -477,11 +488,10 @@ async function main() {
     )
     .addCommand(
       new Command("claim")
-        .requiredOption(
-          "--hex-public-key <public-key>",
+        .description(
           "Claim the caller's GTC neurons."
         )
-        .action((args) => run(() => claimNeurons(args.hexPublicKey)))
+        .action((args) => run(() => claimNeurons()))
     );
 
   const icp = new Command("icp")
