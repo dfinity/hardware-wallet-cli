@@ -1,13 +1,13 @@
 {
   "name": "@dfinity/hardware-wallet-cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A CLI to interact with the Internet Computer App on Ledger Nano S/X devices.",
   "main": "./build/index.js",
   "scripts": {
     "format": "prettier --write .",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc --build",
-    "prepublish": "npm run build",
+    "prepack": "npm run build",
     "clean": "tsc --build --clean",
     "refresh": "rm -rf ./node_modules ./package-lock.json && npm install",
     "execute": "ts-node ./index.ts"
