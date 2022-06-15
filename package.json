@@ -7,7 +7,7 @@
     "format": "prettier --write .",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc --build",
-    "prepublish": "npm run build",
+    "prepack": "npm run build",
     "clean": "tsc --build --clean",
     "refresh": "rm -rf ./node_modules ./package-lock.json && npm install",
     "execute": "ts-node ./index.ts"
