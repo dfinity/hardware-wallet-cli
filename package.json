@@ -1,6 +1,6 @@
 {
   "name": "@dfinity/hardware-wallet-cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A CLI to interact with the Internet Computer App on Ledger Nano S/X devices.",
   "main": "./build/index.js",
   "scripts": {
