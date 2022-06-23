@@ -67,6 +67,7 @@ async function getBalance() {
 
   const ledger = LedgerCanister.create({
     agent: await getAgent(new AnonymousIdentity()),
+    hardwareWallet: true,
   });
 
   const balance = await ledger.accountBalance({
@@ -86,6 +87,7 @@ async function sendICP(to: AccountIdentifier, amount: ICP) {
   const identity = await LedgerIdentity.create();
   const ledger = LedgerCanister.create({
     agent: await getAgent(identity),
+    hardwareWallet: true,
   });
 
   const blockHeight = await ledger.transfer({
