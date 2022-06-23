@@ -10,7 +10,8 @@
     "prepack": "npm run build",
     "clean": "tsc --build --clean",
     "refresh": "rm -rf ./node_modules ./package-lock.json && npm install",
-    "execute": "ts-node ./index.ts"
+    "execute": "ts-node ./index.ts",
+    "update:nns": "npm update @dfinity/nns"
   },
   "repository": {
     "type": "git",
@@ -24,7 +25,7 @@
   "homepage": "https://github.com/dfinity/hardware-wallet-cli#readme",
   "dependencies": {
     "@dfinity/agent": "^0.11.2",
-    "@dfinity/nns": "^0.4.2",
+    "@dfinity/nns": "nightly",
     "@ledgerhq/hw-transport-node-hid-noevents": "^6.3.0",
     "@ledgerhq/hw-transport-webhid": "^6.27.1",
     "@zondax/ledger-icp": "^0.6.0",
