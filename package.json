@@ -25,7 +25,7 @@
   "homepage": "https://github.com/dfinity/hardware-wallet-cli#readme",
   "dependencies": {
     "@dfinity/agent": "^0.11.2",
-    "@dfinity/nns": "nightly",
+    "@dfinity/nns": "file:../nns-js/dfinity-nns-0.5.0.tgz",
     "@ledgerhq/hw-transport-node-hid-noevents": "^6.3.0",
     "@ledgerhq/hw-transport-webhid": "^6.27.1",
     "@zondax/ledger-icp": "^0.6.0",
