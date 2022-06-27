@@ -14,6 +14,7 @@ import {
   ICP,
   InsufficientAmountError,
   InsufficientFundsError,
+  SubAccount,
 } from "@dfinity/nns";
 import { Principal } from "@dfinity/principal";
 import type { Secp256k1PublicKey } from "src/ledger/secp256k1";
@@ -59,10 +60,12 @@ async function getAgent(identity: Identity): Promise<Agent> {
 /**
  * Fetches the balance of the main account on the wallet.
  */
-async function getBalance() {
+async function getBalance(subaccount: string) {
+  const subAccount = tryParseInt(subaccount);
   const identity = await LedgerIdentity.create();
   const accountIdentifier = AccountIdentifier.fromPrincipal({
     principal: identity.getPrincipal(),
+    subAccount: SubAccount.fromSubAccountId(subAccount),
   });
 
   const ledger = LedgerCanister.create({
@@ -83,7 +86,7 @@ async function getBalance() {
  * @param to The account identifier in hex.
  * @param amount Amount to send in e8s.
  */
-async function sendICP(to: AccountIdentifier, amount: ICP) {
+async function sendICP(to: AccountIdentifier, amount: ICP, subAccount: string) {
   const identity = await LedgerIdentity.create();
   const ledger = LedgerCanister.create({
     agent: await getAgent(identity),
@@ -94,13 +97,16 @@ async function sendICP(to: AccountIdentifier, amount: ICP) {
     to: to,
     amount: amount,
     memo: BigInt(0),
+    fromSubAccount: SubAccount.fromSubAccountId(
+      parseInt(subAccount)
+    ).toNumberArray(),
   });
 
   ok(`Transaction completed at block height ${blockHeight}.`);
 }
 
 /**
- * Shows the principal and account idenifier on the terminal and on the wallet's screen.
+ * Shows the principal and default account idenifier ( subaccount 0) on the terminal and on the wallet's screen.
  */
 async function showInfo(showOnDevice?: boolean) {
   const identity = await LedgerIdentity.create();
@@ -490,20 +496,23 @@ async function main() {
     )
     .addCommand(
       new Command("claim")
-        .description(
-          "Claim the caller's GTC neurons."
-        )
+        .description("Claim the caller's GTC neurons.")
         .action((args) => run(() => claimNeurons()))
     );
 
   const icp = new Command("icp")
     .description("Commands for managing ICP.")
     .showSuggestionAfterError()
+    .addOption(
+      new Option("--subaccount <subaccount>", "The subaccount to use.").default(
+        0
+      )
+    )
     .addCommand(
       new Command("balance")
         .description("Fetch current balance.")
         .action(() => {
-          run(getBalance);
+          run(() => getBalance(icp.opts().subaccount));
         })
     )
     .addCommand(
@@ -518,7 +527,9 @@ async function main() {
           "Amount to transfer in e8s.",
           tryParseE8s
         )
-        .action((args) => run(() => sendICP(args.to, args.amount)))
+        .action((args) =>
+          run(() => sendICP(args.to, args.amount, icp.opts().subaccount))
+        )
     );
 
   program
