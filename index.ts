@@ -56,11 +56,21 @@ async function getAgent(identity: Identity): Promise<Agent> {
   return agent;
 }
 
+async function getLedgerIdentity(): Promise<LedgerIdentity> {
+  const principalPath = tryParseInt(program.opts().principal);
+  if (principalPath < 0 || principalPath > 255) {
+    throw new InvalidArgumentError(
+      "Principal path must be between 0 and 255 inclusive."
+    );
+  }
+  return LedgerIdentity.create(`m/44'/223'/0'/0/${principalPath}`);
+}
+
 /**
  * Fetches the balance of the main account on the wallet.
  */
 async function getBalance() {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
   const accountIdentifier = AccountIdentifier.fromPrincipal({
     principal: identity.getPrincipal(),
   });
@@ -84,7 +94,7 @@ async function getBalance() {
  * @param amount Amount to send in e8s.
  */
 async function sendICP(to: AccountIdentifier, amount: ICP) {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
   const ledger = LedgerCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -103,7 +113,7 @@ async function sendICP(to: AccountIdentifier, amount: ICP) {
  * Shows the principal and account idenifier on the terminal and on the wallet's screen.
  */
 async function showInfo(showOnDevice?: boolean) {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
   const accountIdentifier = AccountIdentifier.fromPrincipal({
     principal: identity.getPrincipal(),
   });
@@ -125,7 +135,7 @@ async function showInfo(showOnDevice?: boolean) {
  * @param amount Amount to stake in e8s.
  */
 async function stakeNeuron(stake: ICP) {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
   const ledger = LedgerCanister.create({
     agent: await getAgent(identity),
   });
@@ -164,7 +174,7 @@ async function increaseDissolveDelay(
   minutes: number,
   seconds: number
 ) {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -185,7 +195,7 @@ async function increaseDissolveDelay(
 }
 
 async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -201,7 +211,7 @@ async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
 }
 
 async function spawnNeuron(neuronId: string, controller?: Principal) {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -215,7 +225,7 @@ async function spawnNeuron(neuronId: string, controller?: Principal) {
 }
 
 async function startDissolving(neuronId: bigint) {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -227,7 +237,7 @@ async function startDissolving(neuronId: bigint) {
 }
 
 async function stopDissolving(neuronId: bigint) {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -239,7 +249,7 @@ async function stopDissolving(neuronId: bigint) {
 }
 
 async function addHotkey(neuronId: bigint, principal: Principal) {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -254,7 +264,7 @@ async function addHotkey(neuronId: bigint, principal: Principal) {
 }
 
 async function removeHotkey(neuronId: bigint, principal: Principal) {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -269,7 +279,7 @@ async function removeHotkey(neuronId: bigint, principal: Principal) {
 }
 
 async function listNeurons() {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -299,7 +309,7 @@ const buf2hex = (buffer: ArrayBuffer): string => {
  * Fetches the balance of the main account on the wallet.
  */
 async function claimNeurons() {
-  const identity = await LedgerIdentity.create();
+  const identity = await getLedgerIdentity();
 
   const bufferKey = identity.getPublicKey() as Secp256k1PublicKey;
   const hexPubKey = buf2hex(bufferKey.toRaw());
@@ -529,6 +539,11 @@ async function main() {
       new Option("--network <network>", "The IC network to talk to.")
         .default("https://ic0.app")
         .env("IC_NETWORK")
+    )
+    .addOption(
+      new Option("--principal <principal>", "The derivation path to use for the principal.\n(e.g. --principal 123 will result in a derivation path of m/44'/223'/0'/0/123)\nMust be >= 0 && <= 255").default(
+        0
+      )
     )
     .addCommand(
       new Command("info")
