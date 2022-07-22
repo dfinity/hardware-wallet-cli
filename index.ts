@@ -117,11 +117,15 @@ async function showInfo(showOnDevice?: boolean) {
   const accountIdentifier = AccountIdentifier.fromPrincipal({
     principal: identity.getPrincipal(),
   });
+  const publicKey = identity.getPublicKey() as Secp256k1PublicKey;
 
   log(chalk.bold(`Principal: `) + identity.getPrincipal());
   log(
     chalk.bold(`Address (${identity.derivePath}): `) + accountIdentifier.toHex()
   );
+  log(
+    chalk.bold('Public key: ') + publicKey.toHex()
+  )
 
   if (showOnDevice) {
     log("Displaying the principal and the address on the device...");
@@ -299,35 +303,21 @@ async function listNeurons() {
   }
 }
 
-const buf2hex = (buffer: ArrayBuffer): string => {
-  return [...new Uint8Array(buffer)]
-    .map((x) => x.toString(16).padStart(2, "0"))
-    .join("");
-};
-
 /**
  * Fetches the balance of the main account on the wallet.
  */
 async function claimNeurons() {
   const identity = await getLedgerIdentity();
 
-  const bufferKey = identity.getPublicKey() as Secp256k1PublicKey;
-  const hexPubKey = buf2hex(bufferKey.toRaw());
-  const isHex = hexPubKey.match("^[0-9a-fA-F]+$");
-  if (!isHex) {
-    throw new Error(`${hexPubKey} is not a hex string.`);
-  }
-
-  if (hexPubKey.length < 130 || hexPubKey.length > 150) {
-    throw new Error(`The key must be >= 130 characters and <= 150 characters.`);
-  }
+  const publicKey = identity.getPublicKey() as Secp256k1PublicKey;
+  const hexPubKey = publicKey.toHex();
 
   const governance = await GenesisTokenCanister.create({
     agent: await getAgent(identity),
   });
 
   const claimedNeuronIds = await governance.claimNeurons({
-    hexPubKey: hexPubKey,
+    hexPubKey,
   });
 
   ok(`Successfully claimed the following neurons: ${claimedNeuronIds}`);

@@ -15,6 +15,12 @@ function equals(b1: ArrayBuffer, b2: ArrayBuffer): boolean {
   return true;
 }
 
+const buf2hex = (buffer: ArrayBuffer): string => {
+  return [...new Uint8Array(buffer)]
+    .map((x) => x.toString(16).padStart(2, "0"))
+    .join("");
+};
+
 // This implementation is adjusted from the Ed25519PublicKey.
 // The RAW_KEY_LENGTH and DER_PREFIX are modified accordingly
 export class Secp256k1PublicKey implements PublicKey {
@@ -92,5 +98,20 @@ export class Secp256k1PublicKey implements PublicKey {
 
   public toRaw(): ArrayBuffer {
     return this.rawKey;
+  }
+
+  public toHex(): string {
+    const hexPubKey = buf2hex(this.toRaw());
+
+    const isHex = hexPubKey.match("^[0-9a-fA-F]+$");
+    if (!isHex) {
+      throw new Error(`${hexPubKey} is not a hex string.`);
+    }
+  
+    if (hexPubKey.length < 130 || hexPubKey.length > 150) {
+      throw new Error(`The key must be >= 130 characters and <= 150 characters.`);
+    }
+
+    return hexPubKey;
   }
 }
