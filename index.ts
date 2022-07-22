@@ -117,11 +117,16 @@ async function showInfo(showOnDevice?: boolean) {
   const accountIdentifier = AccountIdentifier.fromPrincipal({
     principal: identity.getPrincipal(),
   });
+  const bufferKey = identity.getPublicKey() as Secp256k1PublicKey;
+  const hexPubKey = buf2hex(bufferKey.toRaw());
 
   log(chalk.bold(`Principal: `) + identity.getPrincipal());
   log(
     chalk.bold(`Address (${identity.derivePath}): `) + accountIdentifier.toHex()
   );
+  log(
+    chalk.bold('Public key: ') + hexPubKey
+  )
 
   if (showOnDevice) {
     log("Displaying the principal and the address on the device...");
