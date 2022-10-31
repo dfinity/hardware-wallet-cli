@@ -84,7 +84,7 @@ async function getBalance() {
     accountIdentifier: accountIdentifier,
   });
 
-  ok(`Account ${accountIdentifier.toHex()} has balance ${balance.toE8s()} e8s`);
+  ok(`Account ${accountIdentifier.toHex()} has balance ${balance} e8s`);
 }
 
 /**
@@ -102,7 +102,7 @@ async function sendICP(to: AccountIdentifier, amount: ICP) {
 
   const blockHeight = await ledger.transfer({
     to: to,
-    amount: amount,
+    amount: amount.toE8s(),
     memo: BigInt(0),
   });
 
@@ -154,7 +154,7 @@ async function stakeNeuron(stake: ICP) {
 
   try {
     const stakedNeuronId = await governance.stakeNeuron({
-      stake: stake,
+      stake: stake.toE8s(),
       principal: identity.getPrincipal(),
       ledgerCanister: ledger,
     });
@@ -162,9 +162,9 @@ async function stakeNeuron(stake: ICP) {
     ok(`Staked neuron with ID: ${stakedNeuronId}`);
   } catch (error) {
     if (error instanceof InsufficientAmountError) {
-      err(`Cannot stake less than ${error.minimumAmount.toE8s()} e8s`);
+      err(`Cannot stake less than ${error.minimumAmount} e8s`);
     } else if (error instanceof InsufficientFundsError) {
-      err(`Your account has insufficient funds (${error.balance.toE8s()} e8s)`);
+      err(`Your account has insufficient funds (${error.balance} e8s)`);
     } else {
       console.log(error);
     }
@@ -198,6 +198,33 @@ async function increaseDissolveDelay(
   ok();
 }
 
+async function setDissolveDelay(
+  neuronId: bigint,
+  years: number,
+  days: number,
+  minutes: number,
+  seconds: number
+) {
+  const identity = await getLedgerIdentity();
+  const governance = GovernanceCanister.create({
+    agent: await getAgent(identity),
+    hardwareWallet: false,
+  });
+
+  const dissolveDelaySeconds =
+    years * SECONDS_PER_YEAR +
+    days * SECONDS_PER_DAY +
+    minutes * SECONDS_PER_MINUTE +
+    seconds;
+
+  await governance.setDissolveDelay({
+    neuronId: neuronId,
+    dissolveDelaySeconds: Math.floor(Date.now() / 1000) + dissolveDelaySeconds,
+  });
+
+  ok();
+}
+
 async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
   const identity = await getLedgerIdentity();
   const governance = GovernanceCanister.create({
@@ -209,6 +236,21 @@ async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
     neuronId: BigInt(neuronId),
     toAccountId: to,
     amount: amount,
+  });
+
+  ok();
+}
+
+async function splitNeuron(neuronId: bigint, amount: bigint) {
+  const identity = await getLedgerIdentity();
+  const governance = GovernanceCanister.create({
+    agent: await getAgent(identity),
+    hardwareWallet: false,
+  });
+
+  await governance.splitNeuron({
+    neuronId: BigInt(neuronId),
+    amount,
   });
 
   ok();
@@ -248,6 +290,30 @@ async function stopDissolving(neuronId: bigint) {
   });
 
   await governance.stopDissolving(neuronId);
+
+  ok();
+}
+
+async function joinCommunityFund(neuronId: bigint) {
+  const identity = await getLedgerIdentity();
+  const governance = GovernanceCanister.create({
+    agent: await getAgent(identity),
+    hardwareWallet: true,
+  });
+
+  await governance.joinCommunityFund(neuronId);
+
+  ok();
+}
+
+async function leaveCommunityFund(neuronId: bigint) {
+  const identity = await getLedgerIdentity();
+  const governance = GovernanceCanister.create({
+    agent: await getAgent(identity),
+    hardwareWallet: true,
+  });
+
+  await governance.leaveCommunityFund(neuronId);
 
   ok();
 }
@@ -301,6 +367,33 @@ async function listNeurons() {
   } else {
     ok("No neurons found.");
   }
+}
+
+async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
+  const identity = await getLedgerIdentity();
+  const governance = GovernanceCanister.create({
+    agent: await getAgent(identity),
+    hardwareWallet: false,
+  });
+
+  await governance.mergeNeurons({
+    targetNeuronId: BigInt(targetNeuronId),
+    sourceNeuronId: BigInt(sourceNeuronId),
+  });
+
+  ok();
+}
+
+async function setNodeProviderAccount(account: AccountIdentifier) {
+  const identity = await getLedgerIdentity();
+  const governance = GovernanceCanister.create({
+    agent: await getAgent(identity),
+    hardwareWallet: false,
+  });
+
+  await governance.setNodeProviderAccount(account.toHex());
+
+  ok();
 }
 
 /**
@@ -427,6 +520,36 @@ async function main() {
         )
     )
     .addCommand(
+      new Command("set-dissolve-delay")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .option("--years <years>", "Number of years", tryParseInt)
+        .option("--days <days>", "Number of days", tryParseInt)
+        .option("--minutes <minutes>", "Number of minutes", tryParseInt)
+        .option("--seconds <seconds>", "Number of seconds", tryParseInt)
+        .action((args) =>
+          run(() =>
+            setDissolveDelay(
+              args.neuronId,
+              args.years || 0,
+              args.days || 0,
+              args.minutes || 0,
+              args.seconds || 0
+            )
+          )
+        )
+    )
+    .addCommand(
+      new Command("set-node-provider-account")
+        .requiredOption("--account <account>", "Account ID", tryParseAccountIdentifier)
+        .action((args) =>
+          run(() =>
+            setNodeProviderAccount(
+              args.account
+            )
+          )
+        )
+    )
+    .addCommand(
       new Command("disburse")
         .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
         .option("--to <account-identifier>")
@@ -437,6 +560,18 @@ async function main() {
         )
         .action((args) => {
           run(() => disburseNeuron(args.neuronId, args.to, args.amount));
+        })
+    )
+    .addCommand(
+      new Command("split")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .option(
+          "--amount <amount>",
+          "Amount split into a new neuron",
+          tryParseBigInt
+        )
+        .action((args) => {
+          run(() => splitNeuron(args.neuronId, args.amount));
         })
     )
     .addCommand(
@@ -465,6 +600,20 @@ async function main() {
           run(() => stopDissolving(args.neuronId));
         })
     )
+    .addCommand(
+      new Command("join-community-fund")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .action((args) => {
+          run(() => joinCommunityFund(args.neuronId));
+        })
+    )
+    .addCommand(
+      new Command("leave-community-fund")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .action((args) => {
+          run(() => leaveCommunityFund(args.neuronId));
+        })
+    )
     .addCommand(new Command("list").action(() => run(listNeurons)))
     .addCommand(
       new Command("add-hotkey")
@@ -475,6 +624,14 @@ async function main() {
           tryParsePrincipal
         )
         .action((args) => run(() => addHotkey(args.neuronId, args.principal)))
+    )
+    .addCommand(
+      new Command("merge-neurons")
+        .requiredOption("--source-neuron-id <source-neuron-id>", "Neuron ID", tryParseBigInt)
+        .requiredOption("--target-neuron-id <target-neuron-id>", "Neuron ID", tryParseBigInt)
+        .action((args) =>
+          run(() => mergeNeurons(args.sourceNeuronId, args.targetNeuronId))
+        )
     )
     .addCommand(
       new Command("remove-hotkey")

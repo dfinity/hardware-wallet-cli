@@ -165,6 +165,8 @@ export class LedgerIdentity extends SignIdentity {
   }
 
   public async sign(blob: ArrayBuffer): Promise<Signature> {
+    console.log('in da sign');
+    console.log(Buffer.from(blob).toString("hex"));
     return await this._executeWithApp(async (app: LedgerApp) => {
       const resp: ResponseSign = await app.sign(
         this.derivePath,
