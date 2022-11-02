@@ -16,7 +16,8 @@ import {
   InsufficientFundsError,
 } from "@dfinity/nns";
 import { Principal } from "@dfinity/principal";
-import type { Secp256k1PublicKey } from "src/ledger/secp256k1";
+import type { Secp256k1PublicKey } from "./src/ledger/secp256k1";
+import { assertLedgerVersion } from "./src/utils";
 import { Agent, AnonymousIdentity, HttpAgent, Identity } from "@dfinity/agent";
 import chalk from "chalk";
 
@@ -206,6 +207,7 @@ async function setDissolveDelay(
   seconds: number
 ) {
   const identity = await getLedgerIdentity();
+  await assertLedgerVersion({ identity, minVersion: "2.1.7" });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: false,
@@ -243,6 +245,7 @@ async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
 
 async function splitNeuron(neuronId: bigint, amount: bigint) {
   const identity = await getLedgerIdentity();
+  await assertLedgerVersion({ identity, minVersion: "2.1.7" });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: false,
@@ -296,6 +299,9 @@ async function stopDissolving(neuronId: bigint) {
 
 async function joinCommunityFund(neuronId: bigint) {
   const identity = await getLedgerIdentity();
+  // Even though joining is supported for earler version
+  // we don't want a user to be able to join but not leave.
+  await assertLedgerVersion({ identity, minVersion: "2.1.7" });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -308,6 +314,7 @@ async function joinCommunityFund(neuronId: bigint) {
 
 async function leaveCommunityFund(neuronId: bigint) {
   const identity = await getLedgerIdentity();
+  await assertLedgerVersion({ identity, minVersion: "2.1.7" });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -371,6 +378,7 @@ async function listNeurons() {
 
 async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
   const identity = await getLedgerIdentity();
+  await assertLedgerVersion({ identity, minVersion: "2.1.7" });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: false,
@@ -386,6 +394,7 @@ async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
 
 async function setNodeProviderAccount(account: AccountIdentifier) {
   const identity = await getLedgerIdentity();
+  await assertLedgerVersion({ identity, minVersion: "2.1.7" });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: false,
@@ -539,17 +548,6 @@ async function main() {
         )
     )
     .addCommand(
-      new Command("set-node-provider-account")
-        .requiredOption("--account <account>", "Account ID", tryParseAccountIdentifier)
-        .action((args) =>
-          run(() =>
-            setNodeProviderAccount(
-              args.account
-            )
-          )
-        )
-    )
-    .addCommand(
       new Command("disburse")
         .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
         .option("--to <account-identifier>")
@@ -678,6 +676,20 @@ async function main() {
         .action((args) => run(() => sendICP(args.to, args.amount)))
     );
 
+  const nodeProvider = new Command("node-provider")
+      .description("Commands for managing node providers.")
+      .showSuggestionAfterError()
+      .addCommand(
+        new Command("set-node-provider-account")
+          .requiredOption("--account <account>", "Account ID", tryParseAccountIdentifier)
+          .action((args) =>
+            run(() =>
+              setNodeProviderAccount(
+                args.account
+              )
+            )
+          )
+      );
   program
     .description("A CLI for the Ledger hardware wallet.")
     .enablePositionalOptions()
@@ -701,7 +713,8 @@ async function main() {
         })
     )
     .addCommand(icp)
-    .addCommand(neuron);
+    .addCommand(neuron)
+    .addCommand(nodeProvider);
 
   await program.parseAsync(process.argv);
 }
