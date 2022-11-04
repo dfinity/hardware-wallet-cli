@@ -192,7 +192,7 @@ async function increaseDissolveDelay(
     seconds;
 
   await governance.increaseDissolveDelay({
-    neuronId: neuronId,
+    neuronId,
     additionalDissolveDelaySeconds: additionalDissolveDelaySeconds,
   });
 
@@ -220,7 +220,7 @@ async function setDissolveDelay(
     seconds;
 
   await governance.setDissolveDelay({
-    neuronId: neuronId,
+    neuronId,
     dissolveDelaySeconds: Math.floor(Date.now() / 1000) + dissolveDelaySeconds,
   });
 
@@ -385,8 +385,8 @@ async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
   });
 
   await governance.mergeNeurons({
-    targetNeuronId: BigInt(targetNeuronId),
-    sourceNeuronId: BigInt(sourceNeuronId),
+    targetNeuronId,
+    sourceNeuronId,
   });
 
   ok();
