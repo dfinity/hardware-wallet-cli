@@ -17,7 +17,7 @@ import {
 } from "@dfinity/nns";
 import { Principal } from "@dfinity/principal";
 import type { Secp256k1PublicKey } from "./src/ledger/secp256k1";
-import { assertLedgerVersion } from "./src/utils";
+import { assertLedgerVersion, isCurrentVersionSmallerThan } from "./src/utils";
 import { Agent, AnonymousIdentity, HttpAgent, Identity } from "@dfinity/agent";
 import chalk from "chalk";
 
@@ -207,7 +207,7 @@ async function setDissolveDelay(
   seconds: number
 ) {
   const identity = await getLedgerIdentity();
-  await assertLedgerVersion({ identity, minVersion: "2.1.7" });
+  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: false,
@@ -245,7 +245,7 @@ async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
 
 async function splitNeuron(neuronId: bigint, amount: bigint) {
   const identity = await getLedgerIdentity();
-  await assertLedgerVersion({ identity, minVersion: "2.1.7" });
+  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: false,
@@ -259,19 +259,55 @@ async function splitNeuron(neuronId: bigint, amount: bigint) {
   ok();
 }
 
-async function spawnNeuron(neuronId: string, controller?: Principal) {
+async function spawnNeuron(neuronId: string, controller?: Principal, percentage?: number) {
   const identity = await getLedgerIdentity();
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
   });
+  console.log('spawning neuron');
+  console.log(percentage);
 
   const spawnedNeuronId = await governance.spawnNeuron({
     neuronId: BigInt(neuronId),
     newController: controller,
+    percentageToSpawn: percentage,
   });
   ok(`Spawned neuron with ID ${spawnedNeuronId}`);
 }
+
+async function stakeMaturity(neuronId: bigint, percerntage?: number) {
+  const identity = await getLedgerIdentity();
+  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
+  const governance = GovernanceCanister.create({
+    agent: await getAgent(identity),
+    hardwareWallet: false,
+  });
+
+  await governance.stakeMaturity({
+    neuronId: BigInt(neuronId),
+    percentageToStake: percerntage,
+  });
+
+  ok();
+}
+
+async function enableAutoStake(neuronId: bigint, autoStake: boolean) {
+  const identity = await getLedgerIdentity();
+  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
+  const governance = GovernanceCanister.create({
+    agent: await getAgent(identity),
+    hardwareWallet: false,
+  });
+
+  await governance.autoStakeMaturity({
+    neuronId: BigInt(neuronId),
+    autoStake
+  });
+
+  ok();
+}
+
 
 async function startDissolving(neuronId: bigint) {
   const identity = await getLedgerIdentity();
@@ -301,7 +337,7 @@ async function joinCommunityFund(neuronId: bigint) {
   const identity = await getLedgerIdentity();
   // Even though joining is supported for earler version
   // we don't want a user to be able to join but not leave.
-  await assertLedgerVersion({ identity, minVersion: "2.1.7" });
+  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -314,7 +350,7 @@ async function joinCommunityFund(neuronId: bigint) {
 
 async function leaveCommunityFund(neuronId: bigint) {
   const identity = await getLedgerIdentity();
-  await assertLedgerVersion({ identity, minVersion: "2.1.7" });
+  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -359,7 +395,7 @@ async function listNeurons() {
   const identity = await getLedgerIdentity();
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
-    hardwareWallet: true,
+    hardwareWallet: await isCurrentVersionSmallerThan({ identity, version: "2.0.0" }),
   });
 
   // We filter neurons with no ICP, as they'll be garbage collected by the governance canister.
@@ -378,7 +414,7 @@ async function listNeurons() {
 
 async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
   const identity = await getLedgerIdentity();
-  await assertLedgerVersion({ identity, minVersion: "2.1.7" });
+  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: false,
@@ -394,7 +430,7 @@ async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
 
 async function setNodeProviderAccount(account: AccountIdentifier) {
   const identity = await getLedgerIdentity();
-  await assertLedgerVersion({ identity, minVersion: "2.1.7" });
+  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: false,
@@ -460,6 +496,14 @@ function tryParseInt(value: string): number {
     throw new InvalidArgumentError("Not a number.");
   }
   return parsedValue;
+}
+
+function tryParseBool(value: string): boolean {
+  const validValues = ["true", "false"];
+  if (!validValues.includes(value)) {
+    throw new InvalidArgumentError("Not a boolean. Try 'true' or 'false'.");
+  }
+  return value !== "false";
 }
 
 function tryParseBigInt(value: string): bigint {
@@ -580,8 +624,37 @@ async function main() {
           "Controller",
           tryParsePrincipal
         )
+        .option(
+          "--percentage-to-spawn <percentage>",
+          "Percentage of maturity to spawn",
+          tryParseInt
+        )
         .action((args) => {
-          run(() => spawnNeuron(args.neuronId, args.controller));
+          run(() => spawnNeuron(args.neuronId, args.controller, args.percentageToSpawn));
+        })
+    )
+    .addCommand(
+      new Command("stake-maturity")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .option(
+          "--percentage-to-stake <percentage>",
+          "Percentage of maturity to stake",
+          tryParseInt
+        )
+        .action((args) => {
+          run(() => stakeMaturity(args.neuronId, args.percentageToStake));
+        })
+    )
+    .addCommand(
+      new Command("enable-auto-stake-maturity")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .requiredOption(
+          "--enable-auto-stake <enable>",
+          "Should auto stake maturity be enabled",
+          tryParseBool
+        )
+        .action((args) => {
+          run(() => enableAutoStake(args.neuronId, args.enableAutoStake));
         })
     )
     .addCommand(
