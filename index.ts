@@ -261,12 +261,15 @@ async function splitNeuron(neuronId: bigint, amount: bigint) {
 
 async function spawnNeuron(neuronId: string, controller?: Principal, percentage?: number) {
   const identity = await getLedgerIdentity();
+  // Percentage is only supported with Candid transaction which was added in version 2.2.0
+  if (percentage !== undefined) {
+    await assertLedgerVersion({ identity, minVersion: "2.2.0" });
+  }
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
-    hardwareWallet: true,
+    // `hardwareWallet: true` uses Protobuf and doesn't support percentage
+    hardwareWallet: percentage === undefined,
   });
-  console.log('spawning neuron');
-  console.log(percentage);
 
   const spawnedNeuronId = await governance.spawnNeuron({
     neuronId: BigInt(neuronId),
