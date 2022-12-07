@@ -268,7 +268,8 @@ async function spawnNeuron(neuronId: string, controller?: Principal, percentage?
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     // `hardwareWallet: true` uses Protobuf and doesn't support percentage
-    hardwareWallet: percentage === undefined,
+    hardwareWallet: await isCurrentVersionSmallerThan({ identity, version: "0.2.2" })
+      && percentage === undefined,
   });
 
   const spawnedNeuronId = await governance.spawnNeuron({
