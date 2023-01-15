@@ -369,7 +369,9 @@ async function listNeurons() {
 
   if (neurons.length > 0) {
     neurons.forEach((n) => {
-      log(`Neuron ID: ${n.neuronId}`);
+      if (n.votingPower > 0) {
+        log(`Neuron ID: ${n.neuronId} Voting power: ${n.votingPower} Hotkeys: ${n.fullNeuron?.hotKeys}`);
+      }
     });
   } else {
     ok("No neurons found.");
