@@ -18,6 +18,7 @@ import {
 import { Principal } from "@dfinity/principal";
 import type { Secp256k1PublicKey } from "./src/ledger/secp256k1";
 import { assertLedgerVersion, isCurrentVersionSmallerThan } from "./src/utils";
+import { CANDID_PARSER_VERSION } from "./src/constants";
 import { Agent, AnonymousIdentity, HttpAgent, Identity } from "@dfinity/agent";
 import chalk from "chalk";
 
@@ -207,10 +208,9 @@ async function setDissolveDelay(
   seconds: number
 ) {
   const identity = await getLedgerIdentity();
-  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
+  await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
-    hardwareWallet: false,
   });
 
   const dissolveDelaySeconds =
@@ -245,10 +245,9 @@ async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
 
 async function splitNeuron(neuronId: bigint, amount: bigint) {
   const identity = await getLedgerIdentity();
-  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
+  await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
-    hardwareWallet: false,
   });
 
   await governance.splitNeuron({
@@ -261,15 +260,14 @@ async function splitNeuron(neuronId: bigint, amount: bigint) {
 
 async function spawnNeuron(neuronId: string, controller?: Principal, percentage?: number) {
   const identity = await getLedgerIdentity();
-  // Percentage is only supported with Candid transaction which was added in version 2.2.0
+  // Percentage is only supported with version CANDID_PARSER_VERSION and above
   if (percentage !== undefined) {
-    await assertLedgerVersion({ identity, minVersion: "2.2.0" });
+    await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   }
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     // `hardwareWallet: true` uses Protobuf and doesn't support percentage
-    hardwareWallet: await isCurrentVersionSmallerThan({ identity, version: "0.2.2" })
-      && percentage === undefined,
+    hardwareWallet: percentage === undefined && await isCurrentVersionSmallerThan({ identity, version: CANDID_PARSER_VERSION }),
   });
 
   const spawnedNeuronId = await governance.spawnNeuron({
@@ -280,17 +278,16 @@ async function spawnNeuron(neuronId: string, controller?: Principal, percentage?
   ok(`Spawned neuron with ID ${spawnedNeuronId}`);
 }
 
-async function stakeMaturity(neuronId: bigint, percerntage?: number) {
+async function stakeMaturity(neuronId: bigint, percentage?: number) {
   const identity = await getLedgerIdentity();
-  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
+  await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
-    hardwareWallet: false,
   });
 
   await governance.stakeMaturity({
     neuronId: BigInt(neuronId),
-    percentageToStake: percerntage,
+    percentageToStake: percentage,
   });
 
   ok();
@@ -298,10 +295,9 @@ async function stakeMaturity(neuronId: bigint, percerntage?: number) {
 
 async function enableAutoStake(neuronId: bigint, autoStake: boolean) {
   const identity = await getLedgerIdentity();
-  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
+  await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
-    hardwareWallet: false,
   });
 
   await governance.autoStakeMaturity({
@@ -341,7 +337,7 @@ async function joinCommunityFund(neuronId: bigint) {
   const identity = await getLedgerIdentity();
   // Even though joining is supported for earler version
   // we don't want a user to be able to join but not leave.
-  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
+  await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -354,7 +350,7 @@ async function joinCommunityFund(neuronId: bigint) {
 
 async function leaveCommunityFund(neuronId: bigint) {
   const identity = await getLedgerIdentity();
-  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
+  await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
     hardwareWallet: true,
@@ -418,10 +414,9 @@ async function listNeurons() {
 
 async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
   const identity = await getLedgerIdentity();
-  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
+  await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
-    hardwareWallet: false,
   });
 
   await governance.mergeNeurons({
@@ -434,10 +429,9 @@ async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
 
 async function setNodeProviderAccount(account: AccountIdentifier) {
   const identity = await getLedgerIdentity();
-  await assertLedgerVersion({ identity, minVersion: "2.2.0" });
+  await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
-    hardwareWallet: false,
   });
 
   await governance.setNodeProviderAccount(account.toHex());
