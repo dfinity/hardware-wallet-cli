@@ -1,6 +1,15 @@
 import { LedgerIdentity } from "./ledger/identity";
 import {smallerVersion} from "@dfinity/utils";
 
+/**
+ * Raises an error if the current version is smaller than the minVersion, does nothing if equal or bigger.
+ * Tags after patch version are ignored, e.g. 1.0.0-beta.1 is considered equal to 1.0.0.
+ *
+ * @param {Object} params
+ * @param {string} params.version Ex: "1.0.0"
+ * @param {string} params.identity
+ * @returns boolean
+ */
 export const assertLedgerVersion = async ({
   identity,
   minVersion,
@@ -18,4 +27,30 @@ export const assertLedgerVersion = async ({
   if (smallerVersion({ currentVersion, minVersion })) {
     throw new Error(`Ledger app version ${currentVersion} is too old. Please update to ${minVersion} or newer.`);
   }
+};
+
+/**
+ * Returns true if the current version is smaller than the minVersion, false if equal or bigger.
+ * Tags after patch version are ignored, e.g. 1.0.0-beta.1 is considered equal to 1.0.0.
+ *
+ * @param {Object} params
+ * @param {string} params.version Ex: "1.0.0"
+ * @param {string} params.identity
+ * @returns boolean
+ */
+export const isCurrentVersionSmallerThan = async ({
+  identity,
+  version,
+}: {
+  identity: LedgerIdentity;
+  version: string;
+}): Promise<boolean> => {
+  // False if identity not LedgerIdentity
+  if (!(identity instanceof LedgerIdentity)) {
+    return false;
+  }
+
+  const { major, minor, patch } = await identity.getVersion();
+  const currentVersion = `${major}.${minor}.${patch}`;
+  return smallerVersion({ currentVersion, minVersion: version });
 };
