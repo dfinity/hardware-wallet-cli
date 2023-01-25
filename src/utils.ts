@@ -1,5 +1,7 @@
 import { LedgerIdentity } from "./ledger/identity";
 import {smallerVersion} from "@dfinity/utils";
+import { NeuronInfo } from "@dfinity/nns";
+import { DEFAULT_TRANSACTION_FEE_E8S } from "./constants";
 
 /**
  * Raises an error if the current version is smaller than the minVersion, does nothing if equal or bigger.
@@ -54,3 +56,12 @@ export const isCurrentVersionSmallerThan = async ({
   const currentVersion = `${major}.${minor}.${patch}`;
   return smallerVersion({ currentVersion, minVersion: version });
 };
+
+
+export const hasValidStake = (neuron: NeuronInfo): boolean =>
+  // Ignore if we can't validate the stake
+  neuron.fullNeuron !== undefined
+    ? neuron.fullNeuron.cachedNeuronStake +
+        neuron.fullNeuron.maturityE8sEquivalent >
+      BigInt(DEFAULT_TRANSACTION_FEE_E8S)
+    : false;
