@@ -17,7 +17,7 @@ import {
 } from "@dfinity/nns";
 import { Principal } from "@dfinity/principal";
 import type { Secp256k1PublicKey } from "./src/ledger/secp256k1";
-import { assertLedgerVersion, isCurrentVersionSmallerThan } from "./src/utils";
+import { assertLedgerVersion, hasValidStake, isCurrentVersionSmallerThan } from "./src/utils";
 import { CANDID_PARSER_VERSION } from "./src/constants";
 import { Agent, AnonymousIdentity, HttpAgent, Identity } from "@dfinity/agent";
 import chalk from "chalk";
@@ -391,7 +391,7 @@ async function removeHotkey(neuronId: bigint, principal: Principal) {
   ok();
 }
 
-async function listNeurons() {
+async function listNeurons(showZeroStake: boolean = false) {
   const identity = await getLedgerIdentity();
   const governance = GovernanceCanister.create({
     agent: await getAgent(identity),
@@ -404,9 +404,11 @@ async function listNeurons() {
   });
 
   if (neurons.length > 0) {
-    neurons.forEach((n) => {
-      log(`Neuron ID: ${n.neuronId}`);
-    });
+    neurons
+      .filter((n) => showZeroStake || hasValidStake(n))
+      .forEach((n) => {
+        log(`Neuron ID: ${n.neuronId}`);
+      });
   } else {
     ok("No neurons found.");
   }
@@ -683,7 +685,10 @@ async function main() {
           run(() => leaveCommunityFund(args.neuronId));
         })
     )
-    .addCommand(new Command("list").action(() => run(listNeurons)))
+    .addCommand(new Command("list")
+      .option("--show-zero-stake", "Show neurons with zero stake and maturity")
+      .action((args) => run(() => listNeurons(args.showZeroStake)))
+    )
     .addCommand(
       new Command("add-hotkey")
         .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
