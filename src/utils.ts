@@ -1,6 +1,6 @@
 import { LedgerIdentity } from "./ledger/identity";
-import {smallerVersion} from "@dfinity/utils";
-import { NeuronInfo } from "@dfinity/nns";
+import { smallerVersion } from "@dfinity/utils";
+import type { NeuronInfo } from "@dfinity/nns";
 import { DEFAULT_TRANSACTION_FEE_E8S } from "./constants";
 
 /**
