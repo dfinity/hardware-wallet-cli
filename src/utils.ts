@@ -57,7 +57,6 @@ export const isCurrentVersionSmallerThan = async ({
   return smallerVersion({ currentVersion, minVersion: version });
 };
 
-
 export const hasValidStake = (neuron: NeuronInfo): boolean =>
   // Ignore if we can't validate the stake
   neuron.fullNeuron !== undefined
