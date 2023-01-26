@@ -4,7 +4,7 @@
  * A CLI tool for testing the Ledger hardware wallet integration.
  */
 import { Command, Option, InvalidArgumentError } from "commander";
-import { LedgerIdentity } from "./src/ledger/identity";
+import { LedgerIdentity } from "./ledger/identity";
 import {
   AccountIdentifier,
   LedgerCanister,
@@ -16,9 +16,9 @@ import {
   InsufficientFundsError,
 } from "@dfinity/nns";
 import { Principal } from "@dfinity/principal";
-import type { Secp256k1PublicKey } from "./src/ledger/secp256k1";
-import { assertLedgerVersion, hasValidStake, isCurrentVersionSmallerThan } from "./src/utils";
-import { CANDID_PARSER_VERSION } from "./src/constants";
+import type { Secp256k1PublicKey } from "./ledger/secp256k1";
+import { assertLedgerVersion, hasValidStake, isCurrentVersionSmallerThan } from "./utils";
+import { CANDID_PARSER_VERSION } from "./constants";
 import { Agent, AnonymousIdentity, HttpAgent, Identity } from "@dfinity/agent";
 import chalk from "chalk";
 
