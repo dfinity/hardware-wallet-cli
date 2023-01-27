@@ -2,6 +2,7 @@
 import esbuild from 'esbuild';
 import {existsSync, mkdirSync, writeFileSync} from 'fs';
 import {join} from 'path';
+import NodeResolve from '@esbuild-plugins/node-resolve';
 
 const dist = join(process.cwd(), 'dist');
 
@@ -9,12 +10,25 @@ if (!existsSync(dist)) {
   mkdirSync(dist);
 }
 
-const script = esbuild.buildSync({
+const script = await esbuild.build({
   entryPoints: ['src/index.ts'],
   bundle: true,
   minify: false,
   platform: 'node',
-  write: false
+  write: false,
+  plugins: [
+    NodeResolve.NodeResolvePlugin({
+      extensions: ['.ts', '.js'],
+      onResolved: (resolved) => {
+        if (resolved.includes('node_modules')) {
+          return {
+            external: true,
+          }
+        }
+        return resolved
+      },
+    }),
+  ],
 });
 
 writeFileSync('dist/index.js', `${script.outputFiles[0].text}`);
