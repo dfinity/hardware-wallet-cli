@@ -13,7 +13,7 @@ if (!existsSync(dist)) {
 const script = await esbuild.build({
   entryPoints: ['src/index.ts'],
   bundle: true,
-  minify: false,
+  minify: true,
   platform: 'node',
   write: false,
   plugins: [
