@@ -3,8 +3,7 @@
 /**
  * A CLI tool for testing the Ledger hardware wallet integration.
  */
-import { Command, Option, InvalidArgumentError } from "commander";
-import { LedgerIdentity } from "./ledger/identity";
+import { Command, Option } from "commander";
 import {
   AccountIdentifier,
   LedgerCanister,
@@ -14,23 +13,51 @@ import {
   ICP,
   InsufficientAmountError,
   InsufficientFundsError,
+  TokenAmount,
+  ICPToken,
 } from "@dfinity/nns";
+import {
+  tryParseAccountIdentifier,
+  tryParseBigInt,
+  tryParseBool,
+  tryParseE8s,
+  tryParseIcrcAccount,
+  tryParseInt,
+  tryParsePercentage,
+  tryParsePrincipal,
+  tryParseSnsNeuronId,
+} from "./parsers";
 import { Principal } from "@dfinity/principal";
 import type { Secp256k1PublicKey } from "./ledger/secp256k1";
-import { assertLedgerVersion, hasValidStake, isCurrentVersionSmallerThan } from "./utils";
-import { CANDID_PARSER_VERSION } from "./constants";
-import { Agent, AnonymousIdentity, HttpAgent, Identity } from "@dfinity/agent";
+import {
+  assertLedgerVersion,
+  hasValidStake,
+  isCurrentVersionSmallerThan,
+  getLedgerIdentity,
+  getAgent,
+  subaccountToHexString,
+  nowInBigIntNanoSeconds,
+} from "./utils";
+import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
+import { AnonymousIdentity, Identity } from "@dfinity/agent";
+import { SnsGovernanceCanister, SnsNeuronId } from "@dfinity/sns";
+import { fromNullable, toNullable } from "@dfinity/utils";
+import {
+  encodeIcrcAccount,
+  IcrcAccount,
+  IcrcLedgerCanister,
+} from "@dfinity/ledger";
 import chalk from "chalk";
 
 // Add polyfill for `window` for `TransportWebHID` checks to work.
 import "node-window-polyfill/register";
 
-// Add polyfill for `window.fetch` for agent-js to work.
 // @ts-ignore (no types are available)
 import fetch from "node-fetch";
 
-global.fetch = fetch;
-window.fetch = fetch;
+(global as any).fetch = fetch;
+// Add polyfill for `window.fetch` for agent-js to work.
+(window as any).fetch = fetch;
 
 const program = new Command();
 const log = console.log;
@@ -40,45 +67,241 @@ const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 const SECONDS_PER_YEAR = 365 * SECONDS_PER_DAY + 6 * SECONDS_PER_HOUR;
 
-async function getAgent(identity: Identity): Promise<Agent> {
-  const network = program.opts().network;
+// TODO: Export from nns-js and use it here.
+const MAINNET_LEDGER_CANISTER_ID = Principal.fromText(
+  "ryjl3-tyaaa-aaaaa-aaaba-cai"
+);
 
-  // Only fetch the rootkey if the network isn't mainnet.
-  const fetchRootKey = new URL(network).host == "ic0.app" ? false : true;
-
-  const agent = new HttpAgent({
-    host: program.opts().network,
-    identity: identity,
-  });
-
-  if (fetchRootKey) {
-    await agent.fetchRootKey();
-  }
-
-  return agent;
+async function getIdentity() {
+  const principalPath = tryParseInt(program.opts().principal);
+  return getLedgerIdentity(principalPath);
 }
 
-async function getLedgerIdentity(): Promise<LedgerIdentity> {
-  const principalPath = tryParseInt(program.opts().principal);
-  if (principalPath < 0 || principalPath > 255) {
-    throw new InvalidArgumentError(
-      "Principal path must be between 0 and 255 inclusive."
-    );
-  }
-  return LedgerIdentity.create(`m/44'/223'/0'/0/${principalPath}`);
+async function getCurrentAgent(identity: Identity) {
+  const network: string = program.opts().network;
+  return getAgent(identity, network);
 }
 
 /**
- * Fetches the balance of the main account on the wallet.
+ * SNS Functionality
+ */
+
+type SnsCallParams = {
+  canisterId: Principal;
+};
+
+async function snsListNeurons(canisterId: Principal) {
+  const identity = await getIdentity();
+  const snsGovernance = SnsGovernanceCanister.create({
+    agent: await getCurrentAgent(new AnonymousIdentity()),
+    canisterId,
+  });
+  const neurons = await snsGovernance.listNeurons({
+    certified: true,
+    principal: identity.getPrincipal(),
+  });
+
+  if (neurons.length > 0) {
+    neurons.forEach((n) => {
+      const neuronId = fromNullable(n.id);
+      if (neuronId !== undefined) {
+        log(`Neuron ID: ${subaccountToHexString(neuronId.id)}`);
+      } else {
+        log("Neuron ID: N/A");
+      }
+    });
+  } else {
+    ok("No neurons found.");
+  }
+}
+
+async function snsAddHotkey({
+  neuronId,
+  principal,
+  canisterId,
+}: { neuronId: SnsNeuronId; principal: Principal } & SnsCallParams) {
+  const identity = await getIdentity();
+  const snsGovernance = SnsGovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+    canisterId,
+  });
+
+  await snsGovernance.addNeuronPermissions({
+    neuronId,
+    principal: principal,
+    permissions: HOTKEY_PERMISSIONS,
+  });
+
+  ok();
+}
+
+async function snsRemoveHotkey({
+  neuronId,
+  principal,
+  canisterId,
+}: { neuronId: SnsNeuronId; principal: Principal } & SnsCallParams) {
+  const identity = await getIdentity();
+  const snsGovernance = SnsGovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+    canisterId,
+  });
+
+  await snsGovernance.removeNeuronPermissions({
+    neuronId,
+    principal: principal,
+    permissions: HOTKEY_PERMISSIONS,
+  });
+
+  ok();
+}
+
+async function snsStartDissolving({
+  neuronId,
+  canisterId,
+}: { neuronId: SnsNeuronId } & SnsCallParams) {
+  const identity = await getIdentity();
+  const snsGovernance = SnsGovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+    canisterId,
+  });
+
+  await snsGovernance.startDissolving(neuronId);
+
+  ok();
+}
+
+async function snsStopDissolving({
+  neuronId,
+  canisterId,
+}: { neuronId: SnsNeuronId } & SnsCallParams) {
+  const identity = await getIdentity();
+  const snsGovernance = SnsGovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+    canisterId,
+  });
+
+  await snsGovernance.stopDissolving(neuronId);
+
+  ok();
+}
+
+async function snsDisburse({
+  neuronId,
+  canisterId,
+  amount,
+  to,
+}: {
+  neuronId: SnsNeuronId;
+  amount?: number;
+  to?: IcrcAccount;
+} & SnsCallParams) {
+  const identity = await getIdentity();
+  const amountE8s =
+    amount !== undefined
+      ? TokenAmount.fromNumber({ amount, token: ICPToken }).toE8s()
+      : undefined;
+  const snsGovernance = SnsGovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+    canisterId,
+  });
+
+  await snsGovernance.disburse({ neuronId, amount: amountE8s, toAccount: to });
+
+  ok();
+}
+
+async function snsStakeMaturity({
+  neuronId,
+  canisterId,
+  percentageToStake,
+}: {
+  neuronId: SnsNeuronId;
+  percentageToStake: number;
+} & SnsCallParams) {
+  const identity = await getIdentity();
+  const snsGovernance = SnsGovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+    canisterId,
+  });
+
+  await snsGovernance.stakeMaturity({ neuronId, percentageToStake });
+
+  ok();
+}
+
+/**
+ * ICRC Functionality
+ */
+
+/**
+ * Fetches the balance of the main ICP account on the wallet.
+ */
+async function snsGetBalance(
+  canisterId: Principal = MAINNET_LEDGER_CANISTER_ID
+) {
+  const identity = await getIdentity();
+  const account: IcrcAccount = { owner: identity.getPrincipal() };
+
+  const ledger = IcrcLedgerCanister.create({
+    agent: await getCurrentAgent(new AnonymousIdentity()),
+    canisterId: canisterId ?? MAINNET_LEDGER_CANISTER_ID,
+  });
+
+  const balance = await ledger.balance(account);
+
+  ok(`Account ${encodeIcrcAccount(account)} has balance ${balance} e8s`);
+}
+
+// TODO: Add support for subaccounts
+async function snsSendTokens({
+  canisterId = MAINNET_LEDGER_CANISTER_ID,
+  amount,
+  to,
+}: {
+  amount: number;
+  to: IcrcAccount;
+  canisterId: Principal;
+}) {
+  const identity = await getIdentity();
+  const amountE8s = TokenAmount.fromNumber({ amount, token: ICPToken }).toE8s();
+  const ledger = IcrcLedgerCanister.create({
+    agent: await getCurrentAgent(identity),
+    canisterId,
+  });
+  const anonymousLedger = IcrcLedgerCanister.create({
+    agent: await getCurrentAgent(new AnonymousIdentity()),
+    canisterId,
+  });
+  const fee = await anonymousLedger.transactionFee({});
+
+  await ledger.transfer({
+    to: {
+      owner: to.owner,
+      subaccount: toNullable(to.subaccount),
+    },
+    amount: amountE8s,
+    fee,
+    created_at_time: nowInBigIntNanoSeconds(),
+  });
+
+  ok();
+}
+
+/**
+ * NNS Functionality
+ */
+
+/**
+ * Fetches the balance of the main ICP account on the wallet.
  */
 async function getBalance() {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   const accountIdentifier = AccountIdentifier.fromPrincipal({
     principal: identity.getPrincipal(),
   });
 
   const ledger = LedgerCanister.create({
-    agent: await getAgent(new AnonymousIdentity()),
+    agent: await getCurrentAgent(new AnonymousIdentity()),
     hardwareWallet: true,
   });
 
@@ -96,9 +319,9 @@ async function getBalance() {
  * @param amount Amount to send in e8s.
  */
 async function sendICP(to: AccountIdentifier, amount: ICP) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   const ledger = LedgerCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
     hardwareWallet: true,
   });
 
@@ -115,7 +338,7 @@ async function sendICP(to: AccountIdentifier, amount: ICP) {
  * Shows the principal and account idenifier on the terminal and on the wallet's screen.
  */
 async function showInfo(showOnDevice?: boolean) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   const accountIdentifier = AccountIdentifier.fromPrincipal({
     principal: identity.getPrincipal(),
   });
@@ -125,9 +348,7 @@ async function showInfo(showOnDevice?: boolean) {
   log(
     chalk.bold(`Address (${identity.derivePath}): `) + accountIdentifier.toHex()
   );
-  log(
-    chalk.bold('Public key: ') + publicKey.toHex()
-  )
+  log(chalk.bold("Public key: ") + publicKey.toHex());
 
   if (showOnDevice) {
     log("Displaying the principal and the address on the device...");
@@ -141,12 +362,12 @@ async function showInfo(showOnDevice?: boolean) {
  * @param amount Amount to stake in e8s.
  */
 async function stakeNeuron(stake: ICP) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   const ledger = LedgerCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
   });
   const governance = GovernanceCanister.create({
-    agent: await getAgent(new AnonymousIdentity()),
+    agent: await getCurrentAgent(new AnonymousIdentity()),
     hardwareWallet: true,
   });
 
@@ -180,10 +401,9 @@ async function increaseDissolveDelay(
   minutes: number,
   seconds: number
 ) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
-    hardwareWallet: true,
+    agent: await getCurrentAgent(identity),
   });
 
   const additionalDissolveDelaySeconds =
@@ -207,10 +427,10 @@ async function setDissolveDelay(
   minutes: number,
   seconds: number
 ) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
   });
 
   const dissolveDelaySeconds =
@@ -228,9 +448,9 @@ async function setDissolveDelay(
 }
 
 async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
     hardwareWallet: true,
   });
 
@@ -244,10 +464,10 @@ async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
 }
 
 async function splitNeuron(neuronId: bigint, amount: bigint) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
   });
 
   await governance.splitNeuron({
@@ -258,16 +478,25 @@ async function splitNeuron(neuronId: bigint, amount: bigint) {
   ok();
 }
 
-async function spawnNeuron(neuronId: string, controller?: Principal, percentage?: number) {
-  const identity = await getLedgerIdentity();
+async function spawnNeuron(
+  neuronId: string,
+  controller?: Principal,
+  percentage?: number
+) {
+  const identity = await getIdentity();
   // Percentage is only supported with version CANDID_PARSER_VERSION and above
   if (percentage !== undefined) {
     await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   }
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
     // `hardwareWallet: true` uses Protobuf and doesn't support percentage
-    hardwareWallet: percentage === undefined && await isCurrentVersionSmallerThan({ identity, version: CANDID_PARSER_VERSION }),
+    hardwareWallet:
+      percentage === undefined &&
+      (await isCurrentVersionSmallerThan({
+        identity,
+        version: CANDID_PARSER_VERSION,
+      })),
   });
 
   const spawnedNeuronId = await governance.spawnNeuron({
@@ -279,10 +508,10 @@ async function spawnNeuron(neuronId: string, controller?: Principal, percentage?
 }
 
 async function stakeMaturity(neuronId: bigint, percentage?: number) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
   });
 
   await governance.stakeMaturity({
@@ -294,26 +523,24 @@ async function stakeMaturity(neuronId: bigint, percentage?: number) {
 }
 
 async function enableAutoStake(neuronId: bigint, autoStake: boolean) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
   });
 
   await governance.autoStakeMaturity({
     neuronId: BigInt(neuronId),
-    autoStake
+    autoStake,
   });
 
   ok();
 }
 
-
 async function startDissolving(neuronId: bigint) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
-    hardwareWallet: true,
+    agent: await getCurrentAgent(identity),
   });
 
   await governance.startDissolving(neuronId);
@@ -322,10 +549,9 @@ async function startDissolving(neuronId: bigint) {
 }
 
 async function stopDissolving(neuronId: bigint) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
-    hardwareWallet: true,
+    agent: await getCurrentAgent(identity),
   });
 
   await governance.stopDissolving(neuronId);
@@ -334,12 +560,12 @@ async function stopDissolving(neuronId: bigint) {
 }
 
 async function joinCommunityFund(neuronId: bigint) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   // Even though joining is supported for earler version
   // we don't want a user to be able to join but not leave.
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
     hardwareWallet: true,
   });
 
@@ -349,10 +575,10 @@ async function joinCommunityFund(neuronId: bigint) {
 }
 
 async function leaveCommunityFund(neuronId: bigint) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
     hardwareWallet: true,
   });
 
@@ -362,9 +588,9 @@ async function leaveCommunityFund(neuronId: bigint) {
 }
 
 async function addHotkey(neuronId: bigint, principal: Principal) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
     hardwareWallet: true,
   });
 
@@ -377,9 +603,9 @@ async function addHotkey(neuronId: bigint, principal: Principal) {
 }
 
 async function removeHotkey(neuronId: bigint, principal: Principal) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
     hardwareWallet: true,
   });
 
@@ -392,10 +618,13 @@ async function removeHotkey(neuronId: bigint, principal: Principal) {
 }
 
 async function listNeurons(showZeroStake: boolean = false) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
-    hardwareWallet: await isCurrentVersionSmallerThan({ identity, version: "2.0.0" }),
+    agent: await getCurrentAgent(identity),
+    hardwareWallet: await isCurrentVersionSmallerThan({
+      identity,
+      version: "2.0.0",
+    }),
   });
 
   // We filter neurons with no ICP, as they'll be garbage collected by the governance canister.
@@ -415,10 +644,10 @@ async function listNeurons(showZeroStake: boolean = false) {
 }
 
 async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
   });
 
   await governance.mergeNeurons({
@@ -430,10 +659,10 @@ async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
 }
 
 async function setNodeProviderAccount(account: AccountIdentifier) {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
   });
 
   await governance.setNodeProviderAccount(account.toHex());
@@ -445,13 +674,13 @@ async function setNodeProviderAccount(account: AccountIdentifier) {
  * Fetches the balance of the main account on the wallet.
  */
 async function claimNeurons() {
-  const identity = await getLedgerIdentity();
+  const identity = await getIdentity();
 
   const publicKey = identity.getPublicKey() as Secp256k1PublicKey;
   const hexPubKey = publicKey.toHex();
 
   const governance = await GenesisTokenCanister.create({
-    agent: await getAgent(identity),
+    agent: await getCurrentAgent(identity),
   });
 
   const claimedNeuronIds = await governance.claimNeurons({
@@ -490,57 +719,207 @@ function err(error: any) {
   log(`${chalk.bold(chalk.red("Error:"))} ${message}`);
 }
 
-function tryParseInt(value: string): number {
-  const parsedValue = parseInt(value, 10);
-  if (isNaN(parsedValue)) {
-    throw new InvalidArgumentError("Not a number.");
-  }
-  return parsedValue;
-}
-
-function tryParseBool(value: string): boolean {
-  const validValues = ["true", "false"];
-  if (!validValues.includes(value)) {
-    throw new InvalidArgumentError("Not a boolean. Try 'true' or 'false'.");
-  }
-  return value !== "false";
-}
-
-function tryParseBigInt(value: string): bigint {
-  try {
-    return BigInt(value);
-  } catch (err: any) {
-    throw new InvalidArgumentError(err.toString());
-  }
-}
-
-function tryParsePrincipal(value: string): Principal {
-  try {
-    return Principal.fromText(value);
-  } catch (err: any) {
-    throw new InvalidArgumentError(err.toString());
-  }
-}
-
-function tryParseE8s(e8s: string): ICP {
-  try {
-    return ICP.fromE8s(tryParseBigInt(e8s));
-  } catch (err: any) {
-    throw new InvalidArgumentError(err.toString());
-  }
-}
-
-function tryParseAccountIdentifier(
-  accountIdentifier: string
-): AccountIdentifier {
-  try {
-    return AccountIdentifier.fromHex(accountIdentifier);
-  } catch (err: any) {
-    throw new InvalidArgumentError(err.toString());
-  }
-}
-
 async function main() {
+  const icrc = new Command("icrc")
+    .description("Commands for managing ICRC ledger.")
+    .addCommand(
+      new Command("balance")
+        .description("Get the balance of the main account on the ICRC wallet.")
+        .option(
+          "--canister-id <canister-id>",
+          "Canister ID (defaults to ICP Ledger)",
+          tryParsePrincipal
+        )
+        .action((args) => run(() => snsGetBalance(args.canisterId)))
+    )
+    .addCommand(
+      new Command("transfer")
+        .description("Send tokens from the ICRC wallet to another account.")
+        .option(
+          "--canister-id <canister-id>",
+          "Canister ID (defaults to ICP Ledger)",
+          tryParsePrincipal
+        )
+        .requiredOption(
+          "--to <account-identifier>",
+          "ICRC Account",
+          tryParseIcrcAccount
+        )
+        .requiredOption(
+          "--amount <amount>",
+          "Amount to disburse in e8s (empty to disburse all)",
+          tryParseBigInt
+        )
+        .action(({ to, amount, canisterId }) => {
+          run(() => snsSendTokens({ to, amount, canisterId }));
+        })
+    );
+
+  const snsNeuron = new Command("neuron")
+    .description("Commands for managing sns neurons.")
+    .addCommand(
+      new Command("list")
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .action((args) => run(() => snsListNeurons(args.canisterId)))
+    )
+    .addCommand(
+      new Command("add-hotkey")
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .requiredOption(
+          "--principal <principal>",
+          "Principal",
+          tryParsePrincipal
+        )
+        .requiredOption(
+          "--neuron-id <neuron-id>",
+          "Neuron ID",
+          tryParseSnsNeuronId
+        )
+        .action(({ canisterId, principal, neuronId }) =>
+          run(() =>
+            snsAddHotkey({
+              canisterId,
+              principal,
+              neuronId,
+            })
+          )
+        )
+    )
+    .addCommand(
+      new Command("remove-hotkey")
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .requiredOption(
+          "--principal <principal>",
+          "Principal",
+          tryParsePrincipal
+        )
+        .requiredOption(
+          "--neuron-id <neuron-id>",
+          "Neuron ID",
+          tryParseSnsNeuronId
+        )
+        .action(({ canisterId, principal, neuronId }) =>
+          run(() =>
+            snsRemoveHotkey({
+              canisterId,
+              principal,
+              neuronId,
+            })
+          )
+        )
+    )
+    .addCommand(
+      new Command("start-dissolving")
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .requiredOption(
+          "--neuron-id <neuron-id>",
+          "Neuron ID",
+          tryParseSnsNeuronId
+        )
+        .action(({ canisterId, neuronId }) =>
+          run(() =>
+            snsStartDissolving({
+              canisterId,
+              neuronId,
+            })
+          )
+        )
+    )
+    .addCommand(
+      new Command("stop-dissolving")
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .requiredOption(
+          "--neuron-id <neuron-id>",
+          "Neuron ID",
+          tryParseSnsNeuronId
+        )
+        .action(({ canisterId, neuronId }) =>
+          run(() =>
+            snsStopDissolving({
+              canisterId,
+              neuronId,
+            })
+          )
+        )
+    )
+    .addCommand(
+      new Command("stake-maturity")
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .requiredOption(
+          "--neuron-id <neuron-id>",
+          "Neuron ID",
+          tryParseSnsNeuronId
+        )
+        .option(
+          "--percentage <percentage>",
+          "Percentage of the maturity to stake (defaults to 100)",
+          tryParsePercentage
+        )
+        .action(({ canisterId, neuronId, percentage }) =>
+          run(() =>
+            snsStakeMaturity({
+              canisterId,
+              neuronId,
+              percentageToStake: percentage,
+            })
+          )
+        )
+    )
+    .addCommand(
+      new Command("disburse")
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .requiredOption(
+          "--neuron-id <neuron-id>",
+          "Neuron ID",
+          tryParseSnsNeuronId
+        )
+        .option(
+          "--to <account-identifier>",
+          "ICRC Account (defaults to controller's main account)",
+          tryParseIcrcAccount
+        )
+        .option(
+          "--amount <amount>",
+          "Amount to disburse in e8s (empty to disburse all)",
+          tryParseBigInt
+        )
+        .action(({ neuronId, to, amount, canisterId }) => {
+          run(() => snsDisburse({ neuronId, to, amount, canisterId }));
+        })
+    );
+
+  const sns = new Command("sns")
+    .description("Commands for managing SNS.")
+    .addCommand(snsNeuron);
+
   const neuron = new Command("neuron")
     .description("Commands for managing neurons.")
     .showSuggestionAfterError()
@@ -597,7 +976,7 @@ async function main() {
         .option("--to <account-identifier>")
         .option(
           "--amount <amount>",
-          "Amount to disburse (empty to disburse all)",
+          "Amount to disburse in e8s (empty to disburse all)",
           tryParseBigInt
         )
         .action((args) => {
@@ -609,7 +988,7 @@ async function main() {
         .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
         .option(
           "--amount <amount>",
-          "Amount split into a new neuron",
+          "Amount split into a new neuron in e8s",
           tryParseBigInt
         )
         .action((args) => {
@@ -630,7 +1009,9 @@ async function main() {
           tryParseInt
         )
         .action((args) => {
-          run(() => spawnNeuron(args.neuronId, args.controller, args.percentageToSpawn));
+          run(() =>
+            spawnNeuron(args.neuronId, args.controller, args.percentageToSpawn)
+          );
         })
     )
     .addCommand(
@@ -685,9 +1066,13 @@ async function main() {
           run(() => leaveCommunityFund(args.neuronId));
         })
     )
-    .addCommand(new Command("list")
-      .option("--show-zero-stake", "Show neurons with zero stake and maturity")
-      .action((args) => run(() => listNeurons(args.showZeroStake)))
+    .addCommand(
+      new Command("list")
+        .option(
+          "--show-zero-stake",
+          "Show neurons with zero stake and maturity"
+        )
+        .action((args) => run(() => listNeurons(args.showZeroStake)))
     )
     .addCommand(
       new Command("add-hotkey")
@@ -701,8 +1086,16 @@ async function main() {
     )
     .addCommand(
       new Command("merge-neurons")
-        .requiredOption("--source-neuron-id <source-neuron-id>", "Neuron ID", tryParseBigInt)
-        .requiredOption("--target-neuron-id <target-neuron-id>", "Neuron ID", tryParseBigInt)
+        .requiredOption(
+          "--source-neuron-id <source-neuron-id>",
+          "Neuron ID",
+          tryParseBigInt
+        )
+        .requiredOption(
+          "--target-neuron-id <target-neuron-id>",
+          "Neuron ID",
+          tryParseBigInt
+        )
         .action((args) =>
           run(() => mergeNeurons(args.sourceNeuronId, args.targetNeuronId))
         )
@@ -721,9 +1114,7 @@ async function main() {
     )
     .addCommand(
       new Command("claim")
-        .description(
-          "Claim the caller's GTC neurons."
-        )
+        .description("Claim the caller's GTC neurons.")
         .action((args) => run(() => claimNeurons()))
     );
 
@@ -753,19 +1144,17 @@ async function main() {
     );
 
   const nodeProvider = new Command("node-provider")
-      .description("Commands for managing node providers.")
-      .showSuggestionAfterError()
-      .addCommand(
-        new Command("set-node-provider-account")
-          .requiredOption("--account <account>", "Account ID", tryParseAccountIdentifier)
-          .action((args) =>
-            run(() =>
-              setNodeProviderAccount(
-                args.account
-              )
-            )
-          )
-      );
+    .description("Commands for managing node providers.")
+    .showSuggestionAfterError()
+    .addCommand(
+      new Command("set-node-provider-account")
+        .requiredOption(
+          "--account <account>",
+          "Account ID",
+          tryParseAccountIdentifier
+        )
+        .action((args) => run(() => setNodeProviderAccount(args.account)))
+    );
   program
     .description("A CLI for the Ledger hardware wallet.")
     .enablePositionalOptions()
@@ -776,9 +1165,10 @@ async function main() {
         .env("IC_NETWORK")
     )
     .addOption(
-      new Option("--principal <principal>", "The derivation path to use for the principal.\n(e.g. --principal 123 will result in a derivation path of m/44'/223'/0'/0/123)\nMust be >= 0 && <= 255").default(
-        0
-      )
+      new Option(
+        "--principal <principal>",
+        "The derivation path to use for the principal.\n(e.g. --principal 123 will result in a derivation path of m/44'/223'/0'/0/123)\nMust be >= 0 && <= 255"
+      ).default(0)
     )
     .addCommand(
       new Command("info")
@@ -790,6 +1180,8 @@ async function main() {
     )
     .addCommand(icp)
     .addCommand(neuron)
+    .addCommand(sns)
+    .addCommand(icrc)
     .addCommand(nodeProvider);
 
   await program.parseAsync(process.argv);

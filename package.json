@@ -15,8 +15,8 @@
     "prepack": "npm run build",
     "clean": "npm run build",
     "refresh": "rm -rf ./node_modules ./package-lock.json && npm install",
-    "execute": "ts-node ./index.ts",
-    "update:next": "npm update @dfinity/nns @dfinity/utils",
+    "execute": "ts-node ./src/index.ts",
+    "update:next": "npm update @dfinity/nns @dfinity/sns @dfinity/utils",
     "update:agent": "npm rm @dfinity/agent @dfinity/principal && npm i @dfinity/agent @dfinity/principal"
   },
   "repository": {
@@ -30,13 +30,16 @@
   },
   "homepage": "https://github.com/dfinity/hardware-wallet-cli#readme",
   "dependencies": {
-    "@dfinity/agent": "^0.14.0",
+    "@dfinity/agent": "^0.15.2",
+    "@dfinity/ledger": "next",
     "@dfinity/nns": "next",
-    "@dfinity/principal": "^0.14.0",
+    "@dfinity/principal": "^0.15.2",
+    "@dfinity/sns": "next",
     "@dfinity/utils": "next",
     "@ledgerhq/hw-transport-node-hid-noevents": "^6.3.0",
     "@ledgerhq/hw-transport-webhid": "^6.27.1",
     "@zondax/ledger-icp": "^0.6.0",
+    "buffer": "^6.0.3",
     "chalk": "^4.1.2",
     "commander": "^9.0.0",
     "node-fetch": "^2.6.1",
@@ -49,7 +52,7 @@
     "@types/node-hid": "^1.3.1",
     "esbuild": "^0.17.4",
     "prettier": "^2.6.2",
-    "ts-node": "^10.8.0"
+    "ts-node": "^10.9.1"
   },
   "bin": {
     "ic-hardware-wallet": "./dist/index.js"
