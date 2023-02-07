@@ -236,7 +236,7 @@ async function snsStakeMaturity({
 /**
  * Fetches the balance of the main ICP account on the wallet.
  */
-async function snsGetBalance(
+async function icrcGetBalance(
   canisterId: Principal = MAINNET_LEDGER_CANISTER_ID
 ) {
   const identity = await getIdentity();
@@ -253,17 +253,16 @@ async function snsGetBalance(
 }
 
 // TODO: Add support for subaccounts
-async function snsSendTokens({
+async function icrcSendTokens({
   canisterId = MAINNET_LEDGER_CANISTER_ID,
   amount,
   to,
 }: {
-  amount: number;
+  amount: TokenAmount;
   to: IcrcAccount;
   canisterId: Principal;
 }) {
   const identity = await getIdentity();
-  const amountE8s = TokenAmount.fromNumber({ amount, token: ICPToken }).toE8s();
   const ledger = IcrcLedgerCanister.create({
     agent: await getCurrentAgent(identity),
     canisterId,
@@ -279,7 +278,7 @@ async function snsSendTokens({
       owner: to.owner,
       subaccount: toNullable(to.subaccount),
     },
-    amount: amountE8s,
+    amount: amount.toE8s(),
     fee,
     created_at_time: nowInBigIntNanoSeconds(),
   });
@@ -730,7 +729,7 @@ async function main() {
           "Canister ID (defaults to ICP Ledger)",
           tryParsePrincipal
         )
-        .action((args) => run(() => snsGetBalance(args.canisterId)))
+        .action((args) => run(() => icrcGetBalance(args.canisterId)))
     )
     .addCommand(
       new Command("transfer")
@@ -747,11 +746,11 @@ async function main() {
         )
         .requiredOption(
           "--amount <amount>",
-          "Amount to disburse in e8s (empty to disburse all)",
-          tryParseBigInt
+          "Amount to transfer in e8s",
+          tryParseE8s
         )
         .action(({ to, amount, canisterId }) => {
-          run(() => snsSendTokens({ to, amount, canisterId }));
+          run(() => icrcSendTokens({ to, amount, canisterId }));
         })
     );
 
