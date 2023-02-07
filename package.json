@@ -19,6 +19,10 @@
     "update:next": "npm update @dfinity/nns @dfinity/sns @dfinity/utils",
     "update:agent": "npm rm @dfinity/agent @dfinity/principal && npm i @dfinity/agent @dfinity/principal"
   },
+  "engineStrict": true,
+  "engines": {
+    "node": ">= 18.13.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dfinity/hardware-wallet-cli.git"
