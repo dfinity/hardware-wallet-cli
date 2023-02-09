@@ -192,20 +192,20 @@ async function snsDisburse({
   to,
 }: {
   neuronId: SnsNeuronId;
-  amount?: number;
+  amount?: TokenAmount;
   to?: IcrcAccount;
 } & SnsCallParams) {
   const identity = await getIdentity();
-  const amountE8s =
-    amount !== undefined
-      ? TokenAmount.fromNumber({ amount, token: ICPToken }).toE8s()
-      : undefined;
   const snsGovernance = SnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
     canisterId,
   });
 
-  await snsGovernance.disburse({ neuronId, amount: amountE8s, toAccount: to });
+  await snsGovernance.disburse({
+    neuronId,
+    amount: amount?.toE8s(),
+    toAccount: to,
+  });
 
   ok();
 }
@@ -908,7 +908,7 @@ async function main() {
         .option(
           "--amount <amount>",
           "Amount to disburse in e8s (empty to disburse all)",
-          tryParseBigInt
+          tryParseE8s
         )
         .action(({ neuronId, to, amount, canisterId }) => {
           run(() => snsDisburse({ neuronId, to, amount, canisterId }));
