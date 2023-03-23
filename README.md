@@ -4,9 +4,9 @@ A CLI to interact with the Internet Computer App on Ledger Nano S/X devices.
 
 ## Quick Start
 
-* Install `npm >= 6.14`.
-* Install the CLI: `npm install -g @dfinity/hardware-wallet-cli`
-* Run the CLI: `ic-hardware-wallet --help`
+- Install `node >= 18.13.0`.
+- Install the CLI: `npm install -g @dfinity/hardware-wallet-cli`
+- Run the CLI: `ic-hardware-wallet --help`
 
 ## USB connection issues with Ledger Live
 
@@ -27,5 +27,5 @@ To execute a command, you can use `npm run execute -- <args>`.
 
 For example
 
-* The command `ic-hardware-wallet --network https://nnsdapp.dfinity.network icp balance`.
-* Would be `npm run execute -- --network https://nnsdapp.dfinity.network icp balance` for development.
+- The command `ic-hardware-wallet --network https://nnsdapp.dfinity.network icp balance`.
+- Would be `npm run execute -- --network https://nnsdapp.dfinity.network icp balance` for development.
