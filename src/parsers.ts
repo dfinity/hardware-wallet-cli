@@ -86,3 +86,11 @@ export function tryParseIcrcAccount(accountIdentifier: string): IcrcAccount {
     throw new InvalidArgumentError(err.toString());
   }
 }
+
+export function tryParseListBigint(nums: string): bigint[] {
+  try {
+    return nums.split(",").map(tryParseBigInt);
+  } catch (err: any) {
+    throw new InvalidArgumentError(err.toString());
+  }
+}
