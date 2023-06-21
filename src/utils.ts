@@ -1,7 +1,10 @@
 import { LedgerIdentity } from "./ledger/identity";
 import { arrayOfNumberToUint8Array, smallerVersion } from "@dfinity/utils";
 import type { NeuronInfo } from "@dfinity/nns";
-import { DEFAULT_TRANSACTION_FEE_E8S } from "./constants";
+import {
+  DEFAULT_TRANSACTION_FEE_E8S,
+  FULL_CANDID_PARSER_VERSION,
+} from "./constants";
 import { InvalidArgumentError, program } from "commander";
 import { Agent, HttpAgent, Identity } from "@dfinity/agent";
 import { SnsNeuronId } from "@dfinity/sns";
@@ -60,6 +63,15 @@ export const isCurrentVersionSmallerThan = async ({
   const { major, minor, patch } = await identity.getVersion();
   const currentVersion = `${major}.${minor}.${patch}`;
   return smallerVersion({ currentVersion, minVersion: version });
+};
+
+export const isCurrentVersionSmallerThanFullCandidParser = async (
+  identity: LedgerIdentity
+): Promise<boolean> => {
+  return isCurrentVersionSmallerThan({
+    identity,
+    version: FULL_CANDID_PARSER_VERSION,
+  });
 };
 
 export const hasValidStake = (neuron: NeuronInfo): boolean =>

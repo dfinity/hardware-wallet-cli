@@ -39,6 +39,7 @@ import {
   getAgent,
   subaccountToHexString,
   nowInBigIntNanoSeconds,
+  isCurrentVersionSmallerThanFullCandidParser,
 } from "./utils";
 import {
   CANDID_PARSER_VERSION,
@@ -307,10 +308,7 @@ async function getBalance() {
 
   const ledger = LedgerCanister.create({
     agent: await getCurrentAgent(new AnonymousIdentity()),
-    hardwareWallet: await isCurrentVersionSmallerThan({
-      identity,
-      version: FULL_CANDID_PARSER_VERSION,
-    }),
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   const balance = await ledger.accountBalance({
@@ -330,10 +328,7 @@ async function sendICP(to: AccountIdentifier, amount: ICP) {
   const identity = await getIdentity();
   const ledger = LedgerCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: await isCurrentVersionSmallerThan({
-      identity,
-      version: FULL_CANDID_PARSER_VERSION,
-    }),
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   const blockHeight = await ledger.transfer({
@@ -379,10 +374,7 @@ async function stakeNeuron(stake: ICP) {
   });
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(new AnonymousIdentity()),
-    hardwareWallet: await isCurrentVersionSmallerThan({
-      identity,
-      version: FULL_CANDID_PARSER_VERSION,
-    }),
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   // Flag that an upcoming stake neuron transaction is coming to distinguish
@@ -465,10 +457,7 @@ async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
   const identity = await getIdentity();
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: await isCurrentVersionSmallerThan({
-      identity,
-      version: FULL_CANDID_PARSER_VERSION,
-    }),
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   await governance.disburse({
@@ -583,10 +572,7 @@ async function joinCommunityFund(neuronId: bigint) {
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: await isCurrentVersionSmallerThan({
-      identity,
-      version: FULL_CANDID_PARSER_VERSION,
-    }),
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   await governance.joinCommunityFund(neuronId);
@@ -599,10 +585,7 @@ async function leaveCommunityFund(neuronId: bigint) {
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: await isCurrentVersionSmallerThan({
-      identity,
-      version: FULL_CANDID_PARSER_VERSION,
-    }),
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   await governance.leaveCommunityFund(neuronId);
@@ -614,18 +597,10 @@ async function addHotkey(neuronId: bigint, principal: Principal) {
   const identity = await getIdentity();
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: await isCurrentVersionSmallerThan({
-      identity,
-      version: FULL_CANDID_PARSER_VERSION,
-    }),
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
-  console.log(
-    await isCurrentVersionSmallerThan({
-      identity,
-      version: FULL_CANDID_PARSER_VERSION,
-    })
-  );
+  console.log(await isCurrentVersionSmallerThanFullCandidParser(identity));
 
   await governance.addHotkey({
     neuronId: BigInt(neuronId),
@@ -639,10 +614,7 @@ async function removeHotkey(neuronId: bigint, principal: Principal) {
   const identity = await getIdentity();
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: await isCurrentVersionSmallerThan({
-      identity,
-      version: FULL_CANDID_PARSER_VERSION,
-    }),
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   await governance.removeHotkey({
@@ -719,8 +691,6 @@ async function setFollowees(
   topic: Topic,
   followees: bigint[]
 ) {
-  console.log(topic);
-  console.log(typeof topic);
   if (!Object.values(Topic).includes(topic)) {
     throw new Error(
       `Invalid topic value. Valid values are: ${Object.values(Topic).join(
@@ -1193,7 +1163,11 @@ async function main() {
           "Proposal ID",
           tryParseBigInt
         )
-        .requiredOption("--vote <vote>", "Vote (1 - YES, 2 - NO)", tryParseInt)
+        .requiredOption(
+          "--vote <vote>",
+          "Vote (1 for YES, 2 for NO)",
+          tryParseInt
+        )
         .action((args) =>
           run(() => registerVote(args.neuronId, args.proposalId, args.vote))
         )
@@ -1204,14 +1178,14 @@ async function main() {
           "Set followees of a neuron in a specific topic. This will overwrite the existing followees for that topic."
         )
         .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
-        .requiredOption("--topic <topic>", "Topic", tryParseInt)
+        .requiredOption("--topic-id <topic>", "Topic ID", tryParseInt)
         .requiredOption(
           "--followees <followees>",
           "Comma-separated Neuron IDs",
           tryParseListBigint
         )
         .action((args) =>
-          run(() => setFollowees(args.neuronId, args.topic, args.followees))
+          run(() => setFollowees(args.neuronId, args.topicId, args.followees))
         )
     )
     .addCommand(
