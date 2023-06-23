@@ -60,5 +60,8 @@
   },
   "bin": {
     "ic-hardware-wallet": "./dist/index.js"
+  },
+  "overrides": {
+    "semver": "^7.5.3"
   }
 }
