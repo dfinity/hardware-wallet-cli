@@ -38,7 +38,9 @@ export function tryParseBigInt(value: string): bigint {
   try {
     return BigInt(value);
   } catch (err: unknown) {
-    throw new InvalidArgumentError(err?.toString() ?? "Not a bigint.");
+    throw new InvalidArgumentError(
+      (err as Error)?.toString() ?? "Not a bigint."
+    );
   }
 }
 
@@ -46,7 +48,9 @@ export function tryParsePrincipal(value: string): Principal {
   try {
     return Principal.fromText(value);
   } catch (err: unknown) {
-    throw new InvalidArgumentError(err?.toString() ?? "Not a principal.");
+    throw new InvalidArgumentError(
+      (err as Error)?.toString() ?? "Not a principal."
+    );
   }
 }
 
@@ -54,7 +58,9 @@ export function tryParseSnsNeuronId(value: string): SnsNeuronId {
   try {
     return hexToSnsNeuronId(value);
   } catch (err: unknown) {
-    throw new InvalidArgumentError(err?.toString() ?? "Not an SNS neuron id.");
+    throw new InvalidArgumentError(
+      (err as Error)?.toString() ?? "Not an SNS neuron id."
+    );
   }
 }
 
@@ -65,7 +71,9 @@ export function tryParseE8s(e8s: string): TokenAmount {
       token: ICPToken,
     });
   } catch (err: unknown) {
-    throw new InvalidArgumentError(err?.toString() ?? "Not an E8s amount.");
+    throw new InvalidArgumentError(
+      (err as Error)?.toString() ?? "Not an E8s amount."
+    );
   }
 }
 
@@ -75,7 +83,9 @@ export function tryParseAccountIdentifier(
   try {
     return AccountIdentifier.fromHex(accountIdentifier);
   } catch (err: unknown) {
-    throw new InvalidArgumentError(err?.toString() ?? "Not an account id.");
+    throw new InvalidArgumentError(
+      (err as Error)?.toString() ?? "Not an account id."
+    );
   }
 }
 
@@ -83,7 +93,9 @@ export function tryParseIcrcAccount(accountIdentifier: string): IcrcAccount {
   try {
     return decodeIcrcAccount(accountIdentifier);
   } catch (err: unknown) {
-    throw new InvalidArgumentError(err?.toString() ?? "Not an ICRC account.");
+    throw new InvalidArgumentError(
+      (err as Error)?.toString() ?? "Not an ICRC account."
+    );
   }
 }
 
@@ -91,6 +103,8 @@ export function tryParseListBigint(nums: string): bigint[] {
   try {
     return nums.split(",").map(tryParseBigInt);
   } catch (err: unknown) {
-    throw new InvalidArgumentError(err?.toString() ?? "Not a list of bigints.");
+    throw new InvalidArgumentError(
+      (err as Error)?.toString() ?? "Not a list of bigints."
+    );
   }
 }

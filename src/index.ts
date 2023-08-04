@@ -217,6 +217,42 @@ async function snsDisburse({
   ok();
 }
 
+async function snsSetDissolveDelay({
+  neuronId,
+  canisterId,
+  years,
+  days,
+  minutes,
+  seconds,
+}: {
+  neuronId: SnsNeuronId;
+  years: number;
+  days: number;
+  minutes: number;
+  seconds: number;
+} & SnsCallParams) {
+  const identity = await getIdentity();
+  const snsGovernance = SnsGovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+    canisterId,
+  });
+
+  const dissolveDelaySeconds =
+    years * SECONDS_PER_YEAR +
+    days * SECONDS_PER_DAY +
+    minutes * SECONDS_PER_MINUTE +
+    seconds;
+
+  await snsGovernance.setDissolveTimestamp({
+    neuronId,
+    dissolveTimestampSeconds: BigInt(
+      Math.floor(Date.now() / 1000) + dissolveDelaySeconds
+    ),
+  });
+
+  ok();
+}
+
 async function snsStakeMaturity({
   neuronId,
   canisterId,
@@ -968,6 +1004,35 @@ async function main() {
         .action(({ neuronId, to, amount, canisterId }) => {
           run(() => snsDisburse({ neuronId, to, amount, canisterId }));
         })
+    )
+    .addCommand(
+      new Command("set-dissolve-delay")
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .requiredOption(
+          "--neuron-id <neuron-id>",
+          "Neuron ID",
+          tryParseSnsNeuronId
+        )
+        .option("--years <years>", "Number of years", tryParseInt)
+        .option("--days <days>", "Number of days", tryParseInt)
+        .option("--minutes <minutes>", "Number of minutes", tryParseInt)
+        .option("--seconds <seconds>", "Number of seconds", tryParseInt)
+        .action((args) =>
+          run(() =>
+            snsSetDissolveDelay({
+              canisterId: args.canisterId,
+              neuronId: args.neuronId,
+              years: args.years || 0,
+              days: args.days || 0,
+              minutes: args.minutes || 0,
+              seconds: args.seconds || 0,
+            })
+          )
+        )
     );
 
   const sns = new Command("sns")
