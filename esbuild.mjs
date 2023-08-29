@@ -1,8 +1,7 @@
-// SOURCE: https://github.com/peterpeterparker/create-ic/blob/main/esbuild.mjs
+// SOURCE: https://github.com/buildwithjuno/cli/blob/main/esbuild.mjs
 import esbuild from "esbuild";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
-import NodeResolve from "@esbuild-plugins/node-resolve";
 
 const dist = join(process.cwd(), "dist");
 
@@ -21,6 +20,10 @@ const script = await esbuild.build({
   banner: {
     js: "import { createRequire as topLevelCreateRequire } from 'module';\n const require = topLevelCreateRequire(import.meta.url);",
   },
+  // Exclude "node-hid" which is referenced and will try to load an HID.node file. File which we don't require.
+  // Solve "Error: Could not locate the bindings file. Tried: (list of folders)"
+  // In addition, "node-hid" uses __dirname which does not exist anymore.
+  external: ["node-hid"],
 });
 
 writeFileSync("dist/index.js", `${script.outputFiles[0].text}`);
