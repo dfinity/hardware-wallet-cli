@@ -5,7 +5,7 @@
   "main": "dist/index.jjs",
   "type": "module",
   "files": [
-    "dist/index.jjs",
+    "dist/index.js",
     "README.md",
     "LICENSE"
   ],
