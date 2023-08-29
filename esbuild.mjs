@@ -14,27 +14,13 @@ const script = await esbuild.build({
   entryPoints: ["src/index.ts"],
   bundle: true,
   minify: true,
+  format: "esm",
   platform: "node",
   write: false,
-  plugins: [
-    NodeResolve.NodeResolvePlugin({
-      extensions: [".ts", ".js"],
-      onResolved: (resolved) => {
-        // We need to exclude hw-transport-node-hid-noevents for
-        // the bindings library to work properly.
-        // https://github.com/TooTallNate/node-bindings/issues/65#issuecomment-637495802
-        if (
-          resolved.includes("node_modules") &&
-          resolved.includes("hw-transport-node-hid-noevents")
-        ) {
-          return {
-            external: true,
-          };
-        }
-        return resolved;
-      },
-    }),
-  ],
+  target: ["node18", "esnext"],
+  banner: {
+    js: "import { createRequire as topLevelCreateRequire } from 'module';\n const require = topLevelCreateRequire(import.meta.url);",
+  },
 });
 
 writeFileSync("dist/index.js", `${script.outputFiles[0].text}`);

@@ -2,9 +2,10 @@
   "name": "@dfinity/hardware-wallet-cli",
   "version": "0.3.0",
   "description": "A CLI to interact with the Internet Computer App on Ledger Nano S/X devices.",
-  "main": "./dist/index.js",
+  "main": "dist/index.jjs",
+  "type": "module",
   "files": [
-    "dist/index.js",
+    "dist/index.jjs",
     "README.md",
     "LICENSE"
   ],
@@ -59,7 +60,7 @@
     "ts-node": "^10.9.1"
   },
   "bin": {
-    "ic-hardware-wallet": "./dist/index.js"
+    "ic-hardware-wallet": "dist/index.mjs"
   },
   "overrides": {
     "semver": "^7.5.3"
