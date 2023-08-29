@@ -13,16 +13,20 @@ if (!existsSync(dist)) {
 const script = await esbuild.build({
   entryPoints: ["src/index.ts"],
   bundle: true,
-  minify: true,
+  minify: false,
   platform: "node",
   write: false,
   plugins: [
     NodeResolve.NodeResolvePlugin({
       extensions: [".ts", ".js"],
       onResolved: (resolved) => {
-        // We need to exclude node_modules from the bundle
-        // otherwise ledgerhq thinks we're in the browser.
-        if (resolved.includes("node_modules")) {
+        // We need to exclude hw-transport-node-hid-noevents for
+        // the bindings library to work properly.
+        // https://github.com/TooTallNate/node-bindings/issues/65#issuecomment-637495802
+        if (
+          resolved.includes("node_modules") &&
+          resolved.includes("hw-transport-node-hid-noevents")
+        ) {
           return {
             external: true,
           };
