@@ -12,8 +12,10 @@ import LedgerApp, { LedgerError, ResponseSign } from "@zondax/ledger-icp";
 import { Secp256k1PublicKey } from "./secp256k1";
 
 // @ts-ignore (no types are available)
-import TransportWebHID, { Transport } from "@ledgerhq/hw-transport-webhid";
-import TransportNodeHidNoEvents from "@ledgerhq/hw-transport-node-hid-noevents";
+import type { Transport } from "@ledgerhq/hw-transport-webhid";
+// Explicit ESM import because we build the CLI with ESM and because those imports are not automatically resolved at build time currently.
+import TransportWebHID from "@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID";
+import TransportNodeHidNoEvents from "@ledgerhq/hw-transport-node-hid-noevents/lib-es/TransportNodeHid";
 
 // Add polyfill for `window.fetch` for agent-js to work.
 // @ts-ignore (no types are available)
