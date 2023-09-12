@@ -65,5 +65,14 @@
   },
   "overrides": {
     "semver": "^7.5.3"
+  },
+  "targets": {
+    "main": {
+      "includeNodeModules": [
+        "@ledgerhq/hw-transport-webhid",
+        "@ledgerhq/hw-transport-node-hid-noevents",
+        "@ledgerhq/hw-transport"
+      ]
+    }
   }
 }
