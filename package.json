@@ -12,7 +12,7 @@
   "scripts": {
     "format": "prettier --write .",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "parcel build",
+    "build": "node rmdir.mjs && node esbuild.mjs",
     "prepack": "npm run build",
     "clean": "npm run build",
     "refresh": "rm -rf ./node_modules ./package-lock.json && npm install",

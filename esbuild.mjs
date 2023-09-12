@@ -25,7 +25,7 @@ const script = await esbuild.build({
         // https://github.com/TooTallNate/node-bindings/issues/65#issuecomment-637495802
         if (
           resolved.includes("node_modules") &&
-          resolved.includes("hw-transport-node-hid-noevents")
+          (resolved.includes("node-hid") || resolved.includes("bindings"))
         ) {
           return {
             external: true,
