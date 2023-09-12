@@ -23,5 +23,6 @@
 build/
 dist/
 node_modules/
+.parcel-cache/
 
 **/*.rs.bk
