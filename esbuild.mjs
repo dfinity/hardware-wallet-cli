@@ -28,7 +28,6 @@ const script = await esbuild.build({
           resolved.includes("node-hid") &&
           !resolved.includes("noevents")
         ) {
-          console.log("Excluding", resolved);
           return {
             external: true,
           };
