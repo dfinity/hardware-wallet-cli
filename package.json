@@ -69,6 +69,10 @@
   "targets": {
     "main": {
       "includeNodeModules": [
+        "@zondax/ledger-icp",
+        "@ledgerhq/devices",
+        "@ledgerhq/logs",
+        "@ledgerhq/errors",
         "@ledgerhq/hw-transport-webhid",
         "@ledgerhq/hw-transport-node-hid-noevents",
         "@ledgerhq/hw-transport"
