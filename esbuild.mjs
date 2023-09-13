@@ -20,9 +20,10 @@ const script = await esbuild.build({
     NodeResolve.NodeResolvePlugin({
       extensions: [".ts", ".js"],
       onResolved: (resolved) => {
-        // We need to exclude node-hid but not hw-transport-node-hid-noevents for
-        // the bindings library to work properly.
-        // https://github.com/TooTallNate/node-bindings/issues/65#issuecomment-637495802
+        // We want all node modules in the same bundle.
+        // Except for the node-hid module which needs to be outside to work properly.
+        // There is another library with the name "hw-transport-node-hid-noevents"
+        // That's why need such a fine-grained check.
         if (
           resolved.includes("node_modules") &&
           resolved.includes("node-hid") &&
