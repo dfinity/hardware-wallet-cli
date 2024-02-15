@@ -14,7 +14,8 @@ import {
   InsufficientAmountError,
   InsufficientFundsError,
   TokenAmount,
-  ICPToken,
+  Vote,
+  Topic,
 } from "@dfinity/nns";
 import {
   tryParseAccountIdentifier,
@@ -23,6 +24,7 @@ import {
   tryParseE8s,
   tryParseIcrcAccount,
   tryParseInt,
+  tryParseListBigint,
   tryParsePercentage,
   tryParsePrincipal,
   tryParseSnsNeuronId,
@@ -37,8 +39,13 @@ import {
   getAgent,
   subaccountToHexString,
   nowInBigIntNanoSeconds,
+  isCurrentVersionSmallerThanFullCandidParser,
 } from "./utils";
-import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
+import {
+  CANDID_PARSER_VERSION,
+  FULL_CANDID_PARSER_VERSION,
+  HOTKEY_PERMISSIONS,
+} from "./constants";
 import { AnonymousIdentity, Identity } from "@dfinity/agent";
 import { SnsGovernanceCanister, SnsNeuronId } from "@dfinity/sns";
 import { fromNullable, toNullable } from "@dfinity/utils";
@@ -210,6 +217,42 @@ async function snsDisburse({
   ok();
 }
 
+async function snsSetDissolveDelay({
+  neuronId,
+  canisterId,
+  years,
+  days,
+  minutes,
+  seconds,
+}: {
+  neuronId: SnsNeuronId;
+  years: number;
+  days: number;
+  minutes: number;
+  seconds: number;
+} & SnsCallParams) {
+  const identity = await getIdentity();
+  const snsGovernance = SnsGovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+    canisterId,
+  });
+
+  const dissolveDelaySeconds =
+    years * SECONDS_PER_YEAR +
+    days * SECONDS_PER_DAY +
+    minutes * SECONDS_PER_MINUTE +
+    seconds;
+
+  await snsGovernance.setDissolveTimestamp({
+    neuronId,
+    dissolveTimestampSeconds: BigInt(
+      Math.floor(Date.now() / 1000) + dissolveDelaySeconds
+    ),
+  });
+
+  ok();
+}
+
 async function snsStakeMaturity({
   neuronId,
   canisterId,
@@ -301,7 +344,7 @@ async function getBalance() {
 
   const ledger = LedgerCanister.create({
     agent: await getCurrentAgent(new AnonymousIdentity()),
-    hardwareWallet: true,
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   const balance = await ledger.accountBalance({
@@ -321,7 +364,7 @@ async function sendICP(to: AccountIdentifier, amount: ICP) {
   const identity = await getIdentity();
   const ledger = LedgerCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: true,
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   const blockHeight = await ledger.transfer({
@@ -367,7 +410,7 @@ async function stakeNeuron(stake: ICP) {
   });
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(new AnonymousIdentity()),
-    hardwareWallet: true,
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   // Flag that an upcoming stake neuron transaction is coming to distinguish
@@ -450,7 +493,7 @@ async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
   const identity = await getIdentity();
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: true,
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   await governance.disburse({
@@ -565,7 +608,7 @@ async function joinCommunityFund(neuronId: bigint) {
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: true,
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   await governance.joinCommunityFund(neuronId);
@@ -578,7 +621,7 @@ async function leaveCommunityFund(neuronId: bigint) {
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: true,
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   await governance.leaveCommunityFund(neuronId);
@@ -590,7 +633,7 @@ async function addHotkey(neuronId: bigint, principal: Principal) {
   const identity = await getIdentity();
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: true,
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   await governance.addHotkey({
@@ -605,7 +648,7 @@ async function removeHotkey(neuronId: bigint, principal: Principal) {
   const identity = await getIdentity();
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: true,
+    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   await governance.removeHotkey({
@@ -652,6 +695,52 @@ async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
   await governance.mergeNeurons({
     targetNeuronId,
     sourceNeuronId,
+  });
+
+  ok();
+}
+
+async function registerVote(neuronId: bigint, proposalId: bigint, vote: Vote) {
+  if (!Object.values(Vote).includes(vote)) {
+    throw new Error(
+      `Invalid vote value. Valid values are: ${Object.values(Vote).join(", ")}`
+    );
+  }
+  const identity = await getIdentity();
+  const governance = GovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+  });
+
+  await governance.registerVote({
+    proposalId,
+    neuronId,
+    vote,
+  });
+
+  ok();
+}
+
+async function setFollowees(
+  neuronId: bigint,
+  topic: Topic,
+  followees: bigint[]
+) {
+  if (!Object.values(Topic).includes(topic)) {
+    throw new Error(
+      `Invalid topic value. Valid values are: ${Object.values(Topic).join(
+        ", "
+      )}`
+    );
+  }
+  const identity = await getIdentity();
+  const governance = GovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+  });
+
+  await governance.setFollowees({
+    neuronId,
+    topic,
+    followees,
   });
 
   ok();
@@ -913,6 +1002,35 @@ async function main() {
         .action(({ neuronId, to, amount, canisterId }) => {
           run(() => snsDisburse({ neuronId, to, amount, canisterId }));
         })
+    )
+    .addCommand(
+      new Command("set-dissolve-delay")
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .requiredOption(
+          "--neuron-id <neuron-id>",
+          "Neuron ID",
+          tryParseSnsNeuronId
+        )
+        .option("--years <years>", "Number of years", tryParseInt)
+        .option("--days <days>", "Number of days", tryParseInt)
+        .option("--minutes <minutes>", "Number of minutes", tryParseInt)
+        .option("--seconds <seconds>", "Number of seconds", tryParseInt)
+        .action((args) =>
+          run(() =>
+            snsSetDissolveDelay({
+              canisterId: args.canisterId,
+              neuronId: args.neuronId,
+              years: args.years || 0,
+              days: args.days || 0,
+              minutes: args.minutes || 0,
+              seconds: args.seconds || 0,
+            })
+          )
+        )
     );
 
   const sns = new Command("sns")
@@ -1097,6 +1215,40 @@ async function main() {
         )
         .action((args) =>
           run(() => mergeNeurons(args.sourceNeuronId, args.targetNeuronId))
+        )
+    )
+    .addCommand(
+      new Command("register-vote")
+        .description("Vote on a specific proposal.")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .requiredOption(
+          "--proposal-id <proposal-id>",
+          "Proposal ID",
+          tryParseBigInt
+        )
+        .requiredOption(
+          "--vote <vote>",
+          "Vote (1 for YES, 2 for NO)",
+          tryParseInt
+        )
+        .action((args) =>
+          run(() => registerVote(args.neuronId, args.proposalId, args.vote))
+        )
+    )
+    .addCommand(
+      new Command("set-followees")
+        .description(
+          "Set followees of a neuron in a specific topic. This will overwrite the existing followees for that topic."
+        )
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .requiredOption("--topic-id <topic>", "Topic ID", tryParseInt)
+        .requiredOption(
+          "--followees <followees>",
+          "Comma-separated Neuron IDs",
+          tryParseListBigint
+        )
+        .action((args) =>
+          run(() => setFollowees(args.neuronId, args.topicId, args.followees))
         )
     )
     .addCommand(
