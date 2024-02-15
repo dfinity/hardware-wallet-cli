@@ -636,8 +636,6 @@ async function addHotkey(neuronId: bigint, principal: Principal) {
     hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
-  console.log(await isCurrentVersionSmallerThanFullCandidParser(identity));
-
   await governance.addHotkey({
     neuronId: BigInt(neuronId),
     principal: principal,
