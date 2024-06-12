@@ -61,6 +61,7 @@ import "node-window-polyfill/register";
 
 // @ts-ignore (no types are available)
 import fetch from "node-fetch";
+import { table } from "table";
 
 (global as any).fetch = fetch;
 // Add polyfill for `window.fetch` for agent-js to work.
@@ -668,6 +669,10 @@ async function listNeurons(showZeroStake: boolean = false) {
       version: "2.0.0",
     }),
   });
+  const ledger = LedgerCanister.create({
+    agent: await getCurrentAgent(new AnonymousIdentity()),
+    hardwareWallet: true,
+  });
 
   // We filter neurons with no ICP, as they'll be garbage collected by the governance canister.
   const neurons = await governance.listNeurons({
@@ -675,11 +680,35 @@ async function listNeurons(showZeroStake: boolean = false) {
   });
 
   if (neurons.length > 0) {
-    neurons
-      .filter((n) => showZeroStake || hasValidStake(n))
-      .forEach((n) => {
-        log(`Neuron ID: ${n.neuronId}`);
-      });
+    // Render a table with the neurons.
+    let idx = 0;
+    const tableData = await Promise.all(
+      neurons
+        .filter((n) => showZeroStake || hasValidStake(n))
+        .map(async (n) => {
+          const accountIdentifier = AccountIdentifier.fromHex(
+            n.fullNeuron!.accountIdentifier
+          );
+
+          const balance = await ledger.accountBalance({
+            accountIdentifier: accountIdentifier,
+            certified: false,
+          });
+
+          idx++;
+
+          return [
+            idx.toString(),
+            n.neuronId.toString(),
+            accountIdentifier.toHex(),
+            balance.toString(),
+          ];
+        })
+    );
+
+    tableData.sort((a, b) => Number.parseInt(a[0]) - Number.parseInt(b[0]));
+    tableData.unshift(["#", "Neuron ID", "Account Identifier", "Balance (e8s)"]);
+    log(table(tableData));
   } else {
     ok("No neurons found.");
   }
