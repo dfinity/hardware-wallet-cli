@@ -46,7 +46,8 @@
     "chalk": "^4.1.2",
     "commander": "^9.0.0",
     "node-fetch": "^2.6.1",
-    "node-window-polyfill": "^1.0.2"
+    "node-window-polyfill": "^1.0.2",
+    "table": "^6.8.1"
   },
   "devDependencies": {
     "@esbuild-plugins/node-resolve": "^0.2.0",
