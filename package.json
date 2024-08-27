@@ -1,6 +1,6 @@
 {
   "name": "@dfinity/hardware-wallet-cli",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A CLI to interact with the Internet Computer App on Ledger Nano S/X devices.",
   "main": "./dist/index.js",
   "files": [
@@ -34,12 +34,12 @@
   },
   "homepage": "https://github.com/dfinity/hardware-wallet-cli#readme",
   "dependencies": {
-    "@dfinity/agent": "^0.15.2",
-    "@dfinity/ledger": "next",
-    "@dfinity/nns": "next",
-    "@dfinity/principal": "^0.15.2",
-    "@dfinity/sns": "next",
-    "@dfinity/utils": "next",
+    "@dfinity/agent": "^1.4.0",
+    "@dfinity/ledger-icrc": "^2.4.0",
+    "@dfinity/nns": "^5.2.0",
+    "@dfinity/principal": "^1.4.0",
+    "@dfinity/sns": "^3.1.0",
+    "@dfinity/utils": "^2.4.0",
     "@ledgerhq/hw-transport-node-hid-noevents": "^6.3.0",
     "@ledgerhq/hw-transport-webhid": "^6.27.1",
     "@zondax/ledger-icp": "^0.6.0",
