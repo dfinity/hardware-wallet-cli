@@ -53,7 +53,7 @@ import {
   encodeIcrcAccount,
   IcrcAccount,
   IcrcLedgerCanister,
-} from "@dfinity/ledger";
+} from "@dfinity/ledger-icrc";
 import chalk from "chalk";
 
 // Add polyfill for `window` for `TransportWebHID` checks to work.

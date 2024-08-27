@@ -3,7 +3,7 @@ import { AccountIdentifier, ICPToken, Token, TokenAmount } from "@dfinity/nns";
 import { Principal } from "@dfinity/principal";
 import { hexToSnsNeuronId } from "./utils";
 import { SnsNeuronId } from "@dfinity/sns";
-import { decodeIcrcAccount, IcrcAccount } from "@dfinity/ledger";
+import { decodeIcrcAccount, IcrcAccount } from "@dfinity/ledger-icrc";
 
 export function tryParseInt(value: string): number {
   const parsedValue = parseInt(value, 10);
