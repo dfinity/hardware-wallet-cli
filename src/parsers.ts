@@ -1,9 +1,10 @@
 import { InvalidArgumentError } from "commander";
-import { AccountIdentifier, ICPToken, Token, TokenAmount } from "@dfinity/nns";
+import { AccountIdentifier } from "@dfinity/ledger-icp";
 import { Principal } from "@dfinity/principal";
 import { hexToSnsNeuronId } from "./utils";
 import { SnsNeuronId } from "@dfinity/sns";
 import { decodeIcrcAccount, IcrcAccount } from "@dfinity/ledger-icrc";
+import { TokenAmountV2, ICPToken } from "@dfinity/utils";
 
 export function tryParseInt(value: string): number {
   const parsedValue = parseInt(value, 10);
@@ -64,9 +65,9 @@ export function tryParseSnsNeuronId(value: string): SnsNeuronId {
   }
 }
 
-export function tryParseE8s(e8s: string): TokenAmount {
+export function tryParseE8s(e8s: string): TokenAmountV2 {
   try {
-    return TokenAmount.fromE8s({
+    return TokenAmountV2.fromUlps({
       amount: tryParseBigInt(e8s),
       token: ICPToken,
     });

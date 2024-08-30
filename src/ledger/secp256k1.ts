@@ -83,8 +83,8 @@ export class Secp256k1PublicKey implements PublicKey {
     return rawKey;
   }
 
-  private readonly rawKey: ArrayBuffer;
-  private readonly derKey: DerEncodedPublicKey;
+  readonly rawKey: ArrayBuffer;
+  readonly derKey: DerEncodedPublicKey;
 
   // `fromRaw` and `fromDer` should be used for instantiation, not this constructor.
   private constructor(key: ArrayBuffer) {
@@ -107,9 +107,11 @@ export class Secp256k1PublicKey implements PublicKey {
     if (!isHex) {
       throw new Error(`${hexPubKey} is not a hex string.`);
     }
-  
+
     if (hexPubKey.length < 130 || hexPubKey.length > 150) {
-      throw new Error(`The key must be >= 130 characters and <= 150 characters.`);
+      throw new Error(
+        `The key must be >= 130 characters and <= 150 characters.`
+      );
     }
 
     return hexPubKey;
