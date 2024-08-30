@@ -4,9 +4,10 @@ A CLI to interact with the Internet Computer App on Ledger Nano S/X devices.
 
 ## Important Note
 
-The CLI does NOT support tokens with different than eight decimals at the moment.
+> [!WARNING]
+> The CLI does NOT support tokens with different than eight decimals at the moment.
 
-**Do NOT USE the cli to transfer ckETH tokens.**
+**Do NOT USE the cli to transfer ckETH or ckERC20 tokens.**
 
 ## Quick Start
 
