@@ -5,15 +5,10 @@
  */
 import { Command, Option } from "commander";
 import {
-  AccountIdentifier,
-  LedgerCanister,
   GenesisTokenCanister,
   GovernanceCanister,
   GovernanceError,
-  ICP,
   InsufficientAmountError,
-  InsufficientFundsError,
-  TokenAmount,
   Vote,
   Topic,
 } from "@dfinity/nns";
@@ -30,7 +25,6 @@ import {
   tryParseSnsNeuronId,
 } from "./parsers";
 import { Principal } from "@dfinity/principal";
-import type { Secp256k1PublicKey } from "./ledger/secp256k1";
 import {
   assertLedgerVersion,
   hasValidStake,
@@ -41,26 +35,28 @@ import {
   nowInBigIntNanoSeconds,
   isCurrentVersionSmallerThanFullCandidParser,
 } from "./utils";
-import {
-  CANDID_PARSER_VERSION,
-  FULL_CANDID_PARSER_VERSION,
-  HOTKEY_PERMISSIONS,
-} from "./constants";
+import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
 import { AnonymousIdentity, Identity } from "@dfinity/agent";
 import { SnsGovernanceCanister, SnsNeuronId } from "@dfinity/sns";
-import { fromNullable, toNullable } from "@dfinity/utils";
+import { TokenAmountV2, fromNullable, toNullable } from "@dfinity/utils";
 import {
   encodeIcrcAccount,
   IcrcAccount,
   IcrcLedgerCanister,
 } from "@dfinity/ledger-icrc";
 import chalk from "chalk";
+import {
+  AccountIdentifier,
+  LedgerCanister,
+  InsufficientFundsError,
+} from "@dfinity/ledger-icp";
 
 // Add polyfill for `window` for `TransportWebHID` checks to work.
 import "node-window-polyfill/register";
 
 // @ts-ignore (no types are available)
 import fetch from "node-fetch";
+import { Secp256k1PublicKey } from "./ledger/secp256k1";
 
 (global as any).fetch = fetch;
 // Add polyfill for `window.fetch` for agent-js to work.
@@ -112,7 +108,9 @@ async function snsListNeurons(canisterId: Principal) {
     neurons.forEach((n) => {
       const neuronId = fromNullable(n.id);
       if (neuronId !== undefined) {
-        log(`Neuron ID: ${subaccountToHexString(neuronId.id)}`);
+        log(
+          `Neuron ID: ${subaccountToHexString(Uint8Array.from(neuronId.id))}`
+        );
       } else {
         log("Neuron ID: N/A");
       }
@@ -199,7 +197,7 @@ async function snsDisburse({
   to,
 }: {
   neuronId: SnsNeuronId;
-  amount?: TokenAmount;
+  amount?: TokenAmountV2;
   to?: IcrcAccount;
 } & SnsCallParams) {
   const identity = await getIdentity();
@@ -301,7 +299,7 @@ async function icrcSendTokens({
   amount,
   to,
 }: {
-  amount: TokenAmount;
+  amount: TokenAmountV2;
   to: IcrcAccount;
   canisterId: Principal;
 }) {
@@ -344,7 +342,6 @@ async function getBalance() {
 
   const ledger = LedgerCanister.create({
     agent: await getCurrentAgent(new AnonymousIdentity()),
-    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   const balance = await ledger.accountBalance({
@@ -360,11 +357,10 @@ async function getBalance() {
  * @param to The account identifier in hex.
  * @param amount Amount to send in e8s.
  */
-async function sendICP(to: AccountIdentifier, amount: ICP) {
+async function sendICP(to: AccountIdentifier, amount: TokenAmountV2) {
   const identity = await getIdentity();
   const ledger = LedgerCanister.create({
     agent: await getCurrentAgent(identity),
-    hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
 
   const blockHeight = await ledger.transfer({
@@ -403,7 +399,7 @@ async function showInfo(showOnDevice?: boolean) {
  *
  * @param amount Amount to stake in e8s.
  */
-async function stakeNeuron(stake: ICP) {
+async function stakeNeuron(stake: TokenAmountV2) {
   const identity = await getIdentity();
   const ledger = LedgerCanister.create({
     agent: await getCurrentAgent(identity),
@@ -425,11 +421,15 @@ async function stakeNeuron(stake: ICP) {
     });
 
     ok(`Staked neuron with ID: ${stakedNeuronId}`);
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof InsufficientAmountError) {
       err(`Cannot stake less than ${error.minimumAmount} e8s`);
     } else if (error instanceof InsufficientFundsError) {
-      err(`Your account has insufficient funds (${error.balance} e8s)`);
+      err(
+        `Your account has insufficient funds (${
+          (error as InsufficientFundsError).balance
+        } e8s)`
+      );
     } else {
       console.log(error);
     }
