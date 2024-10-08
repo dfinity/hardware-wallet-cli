@@ -49,6 +49,7 @@
     "node-window-polyfill": "^1.0.2"
   },
   "devDependencies": {
+    "@dfinity/cketh": "^3.3.1",
     "@esbuild-plugins/node-resolve": "^0.2.0",
     "@types/google-protobuf": "^3.15.6",
     "@types/node": "^17.0.16",
