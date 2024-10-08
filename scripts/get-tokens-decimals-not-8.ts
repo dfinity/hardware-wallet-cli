@@ -33,7 +33,6 @@ const orchestratorInfo = async ({
 
 type TokenInfo = {
   ledgerCanisterId: string;
-  indexCanisterId: string;
   tokenSymbol: string;
   decimals?: bigint;
 };
@@ -46,14 +45,12 @@ const buildOrchestratorInfo = async (
   // eslint-disable-next-line local-rules/prefer-object-params -- This is a destructuring assignment
   const mapManagedCanisters = ({
     ledger,
-    index,
     ckerc20_token_symbol,
   }: ManagedCanisters): TokenInfo | undefined => {
     const ledgerCanister = fromNullable(ledger);
-    const indexCanister = fromNullable(index);
 
     // Skip tokens without Ledger or Index (by definition, this can happen).
-    if (isNullish(ledgerCanister) || isNullish(indexCanister)) {
+    if (isNullish(ledgerCanister)) {
       return undefined;
     }
 
@@ -61,14 +58,9 @@ const buildOrchestratorInfo = async (
       "Created" in ledgerCanister
         ? ledgerCanister.Created
         : ledgerCanister.Installed;
-    const { canister_id: indexCanisterId } =
-      "Created" in indexCanister
-        ? indexCanister.Created
-        : indexCanister.Installed;
 
     return {
       ledgerCanisterId: ledgerCanisterId.toText(),
-      indexCanisterId: indexCanisterId.toText(),
       tokenSymbol: ckerc20_token_symbol,
     };
   };
@@ -112,7 +104,6 @@ const findCkErc20 = async () => {
 
   const ckETH: TokenInfo = {
     ledgerCanisterId: "ss2fx-dyaaa-aaaar-qacoq-cai",
-    indexCanisterId: "s3zol-vqaaa-aaaar-qacpa-cai",
     tokenSymbol: "ckETH",
   };
 
