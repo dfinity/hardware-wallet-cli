@@ -9,7 +9,13 @@ import {
 import { IcrcLedgerCanister } from "@dfinity/ledger-icrc";
 import { Principal } from "@dfinity/principal";
 import { SnsSwapLifecycle } from "@dfinity/sns";
-import { createAgent, fromNullable, isNullish } from "@dfinity/utils";
+import {
+  createAgent,
+  fromNullable,
+  isNullish,
+  jsonReplacer,
+  nonNullish,
+} from "@dfinity/utils";
 import { writeFileSync } from "node:fs";
 
 type TokenInfo = {
@@ -159,10 +165,7 @@ const buildOrchestratorInfo = async (
     };
   };
 
-  const assertToken = (token: TokenInfo | undefined): token is TokenInfo =>
-    token !== undefined;
-
-  return managed_canisters.map(mapManagedCanisters).filter(assertToken);
+  return managed_canisters.map(mapManagedCanisters).filter(nonNullish);
 };
 
 const addTokenDecimals = async (token: TokenInfo): Promise<TokenInfo> => {
@@ -213,15 +216,7 @@ const getAllTokens = async () => {
 
   writeFileSync(
     "tokens.json",
-    JSON.stringify(tokensWithDecimals, (_key, value) => {
-      if (typeof value === "bigint") {
-        return value.toString();
-      }
-      if (value instanceof Principal) {
-        return value.toText();
-      }
-      return value;
-    })
+    JSON.stringify(tokensWithDecimals, jsonReplacer)
   );
 };
 

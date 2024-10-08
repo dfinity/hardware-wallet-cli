@@ -17,7 +17,8 @@
     "refresh": "rm -rf ./node_modules ./package-lock.json && npm install",
     "execute": "ts-node ./src/index.ts",
     "update:next": "npm update @dfinity/nns @dfinity/sns @dfinity/utils",
-    "update:agent": "npm rm @dfinity/agent @dfinity/principal && npm i @dfinity/agent @dfinity/principal"
+    "update:agent": "npm rm @dfinity/agent @dfinity/principal && npm i @dfinity/agent @dfinity/principal",
+    "build:tokens": "ts-node ./scripts/get-tokens-list.ts"
   },
   "engineStrict": true,
   "engines": {
