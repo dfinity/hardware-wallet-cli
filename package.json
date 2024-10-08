@@ -17,7 +17,8 @@
     "refresh": "rm -rf ./node_modules ./package-lock.json && npm install",
     "execute": "ts-node ./src/index.ts",
     "update:next": "npm update @dfinity/nns @dfinity/sns @dfinity/utils",
-    "update:agent": "npm rm @dfinity/agent @dfinity/principal && npm i @dfinity/agent @dfinity/principal"
+    "update:agent": "npm rm @dfinity/agent @dfinity/principal && npm i @dfinity/agent @dfinity/principal",
+    "build:tokens": "ts-node ./scripts/get-tokens-list.ts"
   },
   "engineStrict": true,
   "engines": {
@@ -49,6 +50,7 @@
     "node-window-polyfill": "^1.0.2"
   },
   "devDependencies": {
+    "@dfinity/cketh": "^3.3.1",
     "@esbuild-plugins/node-resolve": "^0.2.0",
     "@types/google-protobuf": "^3.15.6",
     "@types/node": "^17.0.16",
