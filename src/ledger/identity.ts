@@ -1,15 +1,30 @@
 import {
+  AnonymousIdentity,
+  bufFromBufLike,
   CallRequest,
   Cbor,
+  Certificate,
+  HttpAgent,
   HttpAgentRequest,
+  HttpDetailsResponse,
+  lookupResultToBuffer,
+  pollForResponse,
   PublicKey,
   ReadRequest,
   Signature,
   SignIdentity,
+  strategy,
+  SubmitResponse,
+  v2ResponseBody,
+  v3ResponseBody,
 } from "@dfinity/agent";
 import { Principal } from "@dfinity/principal";
 import LedgerApp, { LedgerError, ResponseSign } from "@zondax/ledger-icp";
 import { Secp256k1PublicKey } from "./secp256k1";
+import {
+  icrc21_consent_message_request,
+  icrc21_consent_message_response,
+} from "../bls-test/ledger-icp/icrc21.idl";
 
 // @ts-ignore (no types are available)
 import TransportWebHID, { Transport } from "@ledgerhq/hw-transport-webhid";
@@ -18,6 +33,7 @@ import TransportNodeHidNoEvents from "@ledgerhq/hw-transport-node-hid-noevents";
 // Add polyfill for `window.fetch` for agent-js to work.
 // @ts-ignore (no types are available)
 import fetch from "node-fetch";
+import { IDL } from "@dfinity/candid";
 global.fetch = fetch;
 
 /**
@@ -201,8 +217,129 @@ export class LedgerIdentity extends SignIdentity {
     this._neuronStakeFlag = true;
   }
 
+  private getResponseData = async (
+    { requestId, response, requestDetails }: SubmitResponse,
+    agent: HttpAgent,
+    canisterId: Principal
+  ) => {
+    let reply: ArrayBuffer | undefined;
+    let certificate: Certificate | undefined;
+    if (response.body && (response.body as v3ResponseBody).certificate) {
+      const cert = (response.body as v3ResponseBody).certificate;
+      certificate = await Certificate.create({
+        certificate: bufFromBufLike(cert),
+        rootKey: agent.rootKey,
+        canisterId,
+      });
+      const path = [new TextEncoder().encode("request_status"), requestId];
+      const status = new TextDecoder().decode(
+        lookupResultToBuffer(certificate.lookup([...path, "status"]))
+      );
+
+      switch (status) {
+        case "replied":
+          reply = lookupResultToBuffer(certificate.lookup([...path, "reply"]));
+          break;
+        case "rejected": {
+          // Find rejection details in the certificate
+          const rejectCode = new Uint8Array(
+            lookupResultToBuffer(certificate.lookup([...path, "reject_code"]))!
+          )[0];
+          const rejectMessage = new TextDecoder().decode(
+            lookupResultToBuffer(
+              certificate.lookup([...path, "reject_message"])
+            )!
+          );
+          const error_code_buf = lookupResultToBuffer(
+            certificate.lookup([...path, "error_code"])
+          );
+          const error_code = error_code_buf
+            ? new TextDecoder().decode(error_code_buf)
+            : undefined;
+          throw new Error("Call rejected: " + rejectMessage);
+        }
+      }
+    } else if (response.body && "reject_message" in response.body) {
+      // handle v2 response errors by throwing an UpdateCallRejectedError object
+      const { reject_code, reject_message, error_code } =
+        response.body as v2ResponseBody;
+      throw new Error("Call rejected: " + reject_message);
+    }
+
+    // Fall back to polling if we receive an Accepted response code
+    if (response.status === 202) {
+      // Contains the certificate and the reply from the boundary node
+      const response = await pollForResponse(
+        agent,
+        canisterId,
+        requestId,
+        strategy.defaultStrategy()
+      );
+      certificate = response.certificate;
+      reply = response.reply;
+    }
+
+    const httpDetails = { ...response, requestDetails } as HttpDetailsResponse;
+    if (reply !== undefined) {
+      return {
+        httpDetails,
+        certificate,
+        result: IDL.decode(
+          [icrc21_consent_message_response],
+          Buffer.from(reply)
+        ),
+      };
+    } else {
+      throw new Error(`Call was returned undefined, but type [].`);
+    }
+  };
+
   public async transformRequest(request: HttpAgentRequest): Promise<unknown> {
+    console.log("in da transform request");
     const { body, ...fields } = request;
+    const anonymousIdentity = new AnonymousIdentity();
+    const agent = new HttpAgent({
+      identity: anonymousIdentity,
+      host: "http://localhost:8080",
+    });
+    await agent.fetchRootKey();
+    const ledgerCanisterId = Principal.fromText("ryjl3-tyaaa-aaaaa-aaaba-cai");
+    const consentMessageArgs = {
+      arg: body.arg,
+      method: "icrc2_approve",
+      user_preferences: {
+        metadata: {
+          language: "en",
+          utc_offset_minutes: [],
+        },
+        device_spec: [],
+      },
+    };
+    const arg = IDL.encode(
+      [icrc21_consent_message_request],
+      [consentMessageArgs]
+    );
+    const icrc21ConsentMessageCall = {
+      methodName: "icrc21_canister_call_consent_message",
+      arg,
+      callSync: true,
+    };
+    const submitResponse = await agent.call(
+      ledgerCanisterId,
+      icrc21ConsentMessageCall
+    );
+
+    console.log("after da call", submitResponse.response.status);
+
+    const responseData = await this.getResponseData(
+      submitResponse,
+      agent,
+      ledgerCanisterId
+    );
+
+    console.log("after da get response data");
+    console.log(responseData.result[0]);
+
     const signature = await this.sign(_prepareCborForLedger(body));
     return {
       ...fields,

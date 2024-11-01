@@ -758,6 +758,26 @@ async function setNodeProviderAccount(account: AccountIdentifier) {
   ok();
 }
 
+async function callIcrc21() {
+  const identity = await getIdentity();
+  const anonymousIdentity = new AnonymousIdentity();
+  await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
+  const anonymousLedger = LedgerCanister.create({
+    agent: await getCurrentAgent(anonymousIdentity),
+  });
+  const hwLedger = LedgerCanister.create({
+    agent: await getCurrentAgent(identity),
+  });
+
+  const spenderOwner = Principal.fromText("rdmx6-jaaaa-aaaaa-aaadq-cai");
+  await hwLedger.icrc2Approve({
+    spender: { owner: spenderOwner, subaccount: [] },
+    amount: 1_000_000_000n,
+  });
+
+  ok();
+}
+
 /**
  * Fetches the balance of the main account on the wallet.
  */
@@ -1306,6 +1326,11 @@ async function main() {
         )
         .action((args) => run(() => setNodeProviderAccount(args.account)))
     );
+
+  const icrc21 = new Command("icrc-21")
+    .description("Commands for making ICRC 21 calls.")
+    .showSuggestionAfterError()
+    .addCommand(new Command("call").action((args) => run(() => callIcrc21())));
   program
     .description("A CLI for the Ledger hardware wallet.")
     .enablePositionalOptions()
@@ -1333,7 +1358,8 @@ async function main() {
     .addCommand(neuron)
     .addCommand(sns)
     .addCommand(icrc)
-    .addCommand(nodeProvider);
+    .addCommand(nodeProvider)
+    .addCommand(icrc21);
 
   await program.parseAsync(process.argv);
 }
