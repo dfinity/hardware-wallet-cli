@@ -19,7 +19,7 @@ import {
   v3ResponseBody,
 } from "@dfinity/agent";
 import { Principal } from "@dfinity/principal";
-import LedgerApp, { LedgerError, ResponseSign } from "@zondax/ledger-icp";
+import LedgerApp, { ResponseSign } from "@zondax/ledger-icp";
 import { Secp256k1PublicKey } from "./secp256k1";
 import {
   icrc21_consent_message_request,
@@ -33,7 +33,7 @@ import TransportNodeHidNoEvents from "@ledgerhq/hw-transport-node-hid-noevents";
 // Add polyfill for `window.fetch` for agent-js to work.
 // @ts-ignore (no types are available)
 import fetch from "node-fetch";
-import { IDL } from "@dfinity/candid";
+import { IDL, toHexString } from "@dfinity/candid";
 global.fetch = fetch;
 
 /**
@@ -126,18 +126,17 @@ export class LedgerIdentity extends SignIdentity {
     // @ts-ignore
     if (resp.returnCode == 28161) {
       throw "Please open the Internet Computer app on your wallet and try again.";
-    } else if (resp.returnCode == LedgerError.TransactionRejected) {
-      throw "Ledger Wallet is locked. Unlock it and try again.";
       // @ts-ignore
     } else if (resp.returnCode == 65535) {
       throw "Unable to fetch the public key. Please try again.";
     }
+    // TODO: Manage all return codes that are errors.
 
     // This type doesn't have the right fields in it, so we have to manually type it.
     const principal = (resp as unknown as { principalText: string })
       .principalText;
     const publicKey = Secp256k1PublicKey.fromRaw(
-      new Uint8Array(resp.publicKey)
+      new Uint8Array(resp.publicKey as Buffer)
     );
 
     if (
@@ -178,6 +177,43 @@ export class LedgerIdentity extends SignIdentity {
 
   public getPublicKey(): PublicKey {
     return this._publicKey;
+  }
+
+  public async signBls(
+    consentRequest: string,
+    canisterCall: string,
+    certificate: string,
+    rootKey?: string
+  ): Promise<Signature> {
+    return await this._executeWithApp(async (app: LedgerApp) => {
+      const resp: ResponseSign = await app.signBls(
+        this.derivePath,
+        consentRequest,
+        canisterCall,
+        certificate,
+        rootKey
+      );
+
+      // Remove the "neuron stake" flag, since we already signed the transaction.
+      this._neuronStakeFlag = false;
+
+      const signatureRS = resp.signatureRS;
+      if (!signatureRS) {
+        throw new Error(
+          `A ledger error happened during signature:\n` +
+            `Code: ${resp.returnCode}\n` +
+            `Message: ${JSON.stringify(resp.errorMessage)}\n`
+        );
+      }
+
+      if (signatureRS?.byteLength !== 64) {
+        throw new Error(
+          `Signature must be 64 bytes long (is ${signatureRS.length})`
+        );
+      }
+
+      return bufferToArrayBuffer(signatureRS) as Signature;
+    });
   }
 
   public async sign(blob: ArrayBuffer): Promise<Signature> {
@@ -340,7 +376,17 @@ export class LedgerIdentity extends SignIdentity {
     console.log("after da get response data");
     console.log(responseData.result[0]);
 
-    const signature = await this.sign(_prepareCborForLedger(body));
+    const consentRequest = toHexString(
+      _prepareCborForLedger(submitResponse.requestDetails as CallRequest)
+    );
+    const canisterCall = toHexString(_prepareCborForLedger(body));
+    const cert = (submitResponse.response.body as v3ResponseBody).certificate;
+    const signature = await this.signBls(
+      consentRequest,
+      canisterCall,
+      toHexString(cert),
+      toHexString(agent.rootKey)
+    );
     return {
       ...fields,
       body: {
@@ -377,9 +423,9 @@ export class LedgerIdentity extends SignIdentity {
 }
 
 interface Version {
-  major: number;
-  minor: number;
-  patch: number;
+  major?: number;
+  minor?: number;
+  patch?: number;
 }
 
 function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
