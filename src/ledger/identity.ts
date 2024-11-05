@@ -358,7 +358,7 @@ export class LedgerIdentity extends SignIdentity {
     const icrc21ConsentMessageCall = {
       methodName: "icrc21_canister_call_consent_message",
       arg,
-      callSync: true,
+      // callSync: true,
     };
     const submitResponse = await agent.call(
       ledgerCanisterId,
@@ -375,6 +375,9 @@ export class LedgerIdentity extends SignIdentity {
 
     console.log("after da get response data");
     console.log(responseData.result[0]);
+
+    console.log("canister call");
+    console.log(body);
 
     const consentRequest = toHexString(
       _prepareCborForLedger(submitResponse.requestDetails as CallRequest)
