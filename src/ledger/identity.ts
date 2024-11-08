@@ -331,7 +331,6 @@ export class LedgerIdentity extends SignIdentity {
   };
 
   public async transformRequest(request: HttpAgentRequest): Promise<unknown> {
-    console.log("in da transform request");
     const { body, ...fields } = request;
     const anonymousIdentity = new AnonymousIdentity();
     const agent = new HttpAgent({
@@ -348,7 +347,14 @@ export class LedgerIdentity extends SignIdentity {
           language: "en",
           utc_offset_minutes: [],
         },
-        device_spec: [],
+        device_spec: [
+          {
+            LineDisplay: {
+              characters_per_line: 35,
+              lines_per_page: 3,
+            },
+          },
+        ],
       },
     };
     const arg = IDL.encode(
@@ -364,31 +370,34 @@ export class LedgerIdentity extends SignIdentity {
       ledgerCanisterId,
       icrc21ConsentMessageCall
     );
-
-    console.log("after da call", submitResponse.response.status);
-
     const responseData = await this.getResponseData(
       submitResponse,
       agent,
       ledgerCanisterId
     );
 
-    console.log("after da get response data");
-    console.log(responseData.result[0]);
-
-    console.log("canister call");
-    console.log(body);
-
     const consentRequest = toHexString(
       _prepareCborForLedger(submitResponse.requestDetails as CallRequest)
     );
     const canisterCall = toHexString(_prepareCborForLedger(body));
     const cert = (submitResponse.response.body as v3ResponseBody).certificate;
+    const certificate = toHexString(cert);
+    const rootKey = toHexString(agent.rootKey);
+    const data = {
+      consentRequest: submitResponse.requestDetails,
+      consentRequestArgs: consentMessageArgs,
+      consentRequestHex: consentRequest,
+      cansiterCall: body,
+      canisterCallHex: canisterCall,
+      certificate,
+      rootKey,
+    };
+    console.log(data);
     const signature = await this.signBls(
       consentRequest,
       canisterCall,
-      toHexString(cert),
-      toHexString(agent.rootKey)
+      certificate,
+      rootKey
     );
     return {
       ...fields,
