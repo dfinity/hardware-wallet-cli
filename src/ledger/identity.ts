@@ -25,6 +25,7 @@ import {
   icrc21_consent_message_request,
   icrc21_consent_message_response,
 } from "../bls-test/ledger-icp/icrc21.idl";
+import * as fs from "fs";
 
 // @ts-ignore (no types are available)
 import TransportWebHID, { Transport } from "@ledgerhq/hw-transport-webhid";
@@ -387,12 +388,28 @@ export class LedgerIdentity extends SignIdentity {
       consentRequest: submitResponse.requestDetails,
       consentRequestArgs: consentMessageArgs,
       consentRequestHex: consentRequest,
+      consentResponse: responseData.result[0],
       cansiterCall: body,
       canisterCallHex: canisterCall,
       certificate,
       rootKey,
     };
-    console.log(data);
+
+    fs.writeFileSync(
+      "output.json",
+      JSON.stringify(data, (key, value) => {
+        if (typeof value === "bigint") {
+          return value.toString();
+        }
+        if (value instanceof Principal) {
+          return value.toText();
+        }
+        if (value instanceof Uint8Array) {
+          return Array.from(value);
+        }
+        return value;
+      })
+    );
     const signature = await this.signBls(
       consentRequest,
       canisterCall,
