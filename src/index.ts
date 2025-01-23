@@ -772,7 +772,7 @@ async function callIcrc21() {
   const spenderOwner = Principal.fromText("rdmx6-jaaaa-aaaaa-aaadq-cai");
   await hwLedger.icrc2Approve({
     spender: { owner: spenderOwner, subaccount: [] },
-    amount: 1_000_000_000n,
+    amount: 100_000_000n,
     expires_at: BigInt(Date.now() + 1000 * 60 * 60 * 24),
   });
 
