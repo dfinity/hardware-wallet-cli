@@ -336,9 +336,7 @@ export class LedgerIdentity extends SignIdentity {
     const anonymousIdentity = new AnonymousIdentity();
     const agent = new HttpAgent({
       identity: anonymousIdentity,
-      host: "http://localhost:8080",
     });
-    await agent.fetchRootKey();
     const ledgerCanisterId = Principal.fromText("ryjl3-tyaaa-aaaaa-aaaba-cai");
     const consentMessageArgs = {
       arg: body.arg,
@@ -383,7 +381,6 @@ export class LedgerIdentity extends SignIdentity {
     const canisterCall = toHexString(_prepareCborForLedger(body));
     const cert = (submitResponse.response.body as v3ResponseBody).certificate;
     const certificate = toHexString(cert);
-    const rootKey = toHexString(agent.rootKey);
     const data = {
       consentRequest: submitResponse.requestDetails,
       consentRequestArgs: consentMessageArgs,
@@ -392,7 +389,6 @@ export class LedgerIdentity extends SignIdentity {
       cansiterCall: body,
       canisterCallHex: canisterCall,
       certificate,
-      rootKey,
     };
 
     fs.writeFileSync(
@@ -413,8 +409,7 @@ export class LedgerIdentity extends SignIdentity {
     const signature = await this.signBls(
       consentRequest,
       canisterCall,
-      certificate,
-      rootKey
+      certificate
     );
     return {
       ...fields,
