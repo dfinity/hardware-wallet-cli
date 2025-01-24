@@ -770,13 +770,14 @@ async function callIcrc21() {
   });
 
   const spenderOwner = Principal.fromText("rdmx6-jaaaa-aaaaa-aaadq-cai");
+
   await hwLedger.icrc2Approve({
     spender: { owner: spenderOwner, subaccount: [] },
     amount: 100_000_000n,
-    expires_at: BigInt(Date.now() + 1000 * 60 * 60 * 24),
+    expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
   });
 
-  ok();
+  ok("Approved 1 ICP for spending.");
 }
 
 /**
@@ -806,6 +807,7 @@ async function run(f: () => void) {
   try {
     await f();
   } catch (error: any) {
+    console.log("in da error", error instanceof Error, error);
     err(error);
   }
 }
