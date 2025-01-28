@@ -4,6 +4,7 @@ import {
   CallRequest,
   Cbor,
   Certificate,
+  Expiry,
   HttpAgent,
   HttpAgentRequest,
   HttpDetailsResponse,
@@ -333,6 +334,10 @@ export class LedgerIdentity extends SignIdentity {
 
   public async transformRequest(request: HttpAgentRequest): Promise<unknown> {
     const { body, ...fields } = request;
+    if (body.request_type === "call") {
+      // Not always necessary.
+      body.ingress_expiry = new Expiry(300_000);
+    }
     const anonymousIdentity = new AnonymousIdentity();
     const agent = new HttpAgent({
       identity: anonymousIdentity,
@@ -374,7 +379,6 @@ export class LedgerIdentity extends SignIdentity {
       agent,
       ledgerCanisterId
     );
-
     const consentRequest = toHexString(
       _prepareCborForLedger(submitResponse.requestDetails as CallRequest)
     );

@@ -38,7 +38,12 @@ import {
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
 import { AnonymousIdentity, Identity } from "@dfinity/agent";
 import { SnsGovernanceCanister, SnsNeuronId } from "@dfinity/sns";
-import { TokenAmountV2, fromNullable, toNullable } from "@dfinity/utils";
+import {
+  TokenAmountV2,
+  fromNullable,
+  jsonReplacer,
+  toNullable,
+} from "@dfinity/utils";
 import {
   encodeIcrcAccount,
   IcrcAccount,
@@ -807,8 +812,7 @@ async function run(f: () => void) {
   try {
     await f();
   } catch (error: any) {
-    console.log("in da error", error instanceof Error, error);
-    err(error);
+    err(JSON.stringify(error, jsonReplacer));
   }
 }
 
