@@ -43,7 +43,7 @@
     "@dfinity/utils": "^2.6.0",
     "@ledgerhq/hw-transport-node-hid-noevents": "^6.3.0",
     "@ledgerhq/hw-transport-webhid": "^6.27.1",
-    "@zondax/ledger-icp": "^3.2.0",
+    "@zondax/ledger-icp": "^3.2.4",
     "chalk": "^4.1.2",
     "commander": "^9.0.0",
     "node-fetch": "^2.6.1",

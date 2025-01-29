@@ -184,16 +184,14 @@ export class LedgerIdentity extends SignIdentity {
   public async signBls(
     consentRequest: string,
     canisterCall: string,
-    certificate: string,
-    rootKey?: string
+    certificate: string
   ): Promise<Signature> {
     return await this._executeWithApp(async (app: LedgerApp) => {
       const resp: ResponseSign = await app.signBls(
         this.derivePath,
         consentRequest,
         canisterCall,
-        certificate,
-        rootKey
+        certificate
       );
 
       // Remove the "neuron stake" flag, since we already signed the transaction.
