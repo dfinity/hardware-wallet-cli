@@ -186,6 +186,7 @@ export class LedgerIdentity extends SignIdentity {
     canisterCall: string,
     certificate: string
   ): Promise<Signature> {
+    console.log("in da signBls");
     return await this._executeWithApp(async (app: LedgerApp) => {
       const resp: ResponseSign = await app.signBls(
         this.derivePath,
@@ -217,6 +218,7 @@ export class LedgerIdentity extends SignIdentity {
   }
 
   public async sign(blob: ArrayBuffer): Promise<Signature> {
+    console.log("in da sign");
     return await this._executeWithApp(async (app: LedgerApp) => {
       const resp: ResponseSign = await app.sign(
         this.derivePath,
@@ -340,7 +342,13 @@ export class LedgerIdentity extends SignIdentity {
     const agent = new HttpAgent({
       identity: anonymousIdentity,
     });
-    const ledgerCanisterId = Principal.fromText("ryjl3-tyaaa-aaaaa-aaaba-cai");
+
+    // CHAT Ledger
+    const canisterId = Principal.fromText("2ouva-viaaa-aaaaq-aaamq-cai");
+    // CkBTC Ledger
+    // const canisterId = Principal.fromText("mxzaz-hqaaa-aaaar-qaada-cai");
+    // ICP Ledger
+    // const canisterId = Principal.fromText("ryjl3-tyaaa-aaaaa-aaaba-cai");
     const consentMessageArgs = {
       arg: body.arg,
       method: "icrc2_approve",
@@ -369,13 +377,13 @@ export class LedgerIdentity extends SignIdentity {
       // callSync: true,
     };
     const submitResponse = await agent.call(
-      ledgerCanisterId,
+      canisterId,
       icrc21ConsentMessageCall
     );
     const responseData = await this.getResponseData(
       submitResponse,
       agent,
-      ledgerCanisterId
+      canisterId
     );
     const consentRequest = toHexString(
       _prepareCborForLedger(submitResponse.requestDetails as CallRequest)
@@ -393,21 +401,21 @@ export class LedgerIdentity extends SignIdentity {
       certificate,
     };
 
-    fs.writeFileSync(
-      "output.json",
-      JSON.stringify(data, (key, value) => {
-        if (typeof value === "bigint") {
-          return value.toString();
-        }
-        if (value instanceof Principal) {
-          return value.toText();
-        }
-        if (value instanceof Uint8Array) {
-          return Array.from(value);
-        }
-        return value;
-      })
-    );
+    // fs.writeFileSync(
+    //   "output.json",
+    //   JSON.stringify(data, (key, value) => {
+    //     if (typeof value === "bigint") {
+    //       return value.toString();
+    //     }
+    //     if (value instanceof Principal) {
+    //       return value.toText();
+    //     }
+    //     if (value instanceof Uint8Array) {
+    //       return Array.from(value);
+    //     }
+    //     return value;
+    //   })
+    // );
     const signature = await this.signBls(
       consentRequest,
       canisterCall,

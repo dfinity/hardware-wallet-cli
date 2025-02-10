@@ -767,22 +767,29 @@ async function callIcrc21() {
   const identity = await getIdentity();
   const anonymousIdentity = new AnonymousIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
-  const anonymousLedger = LedgerCanister.create({
-    agent: await getCurrentAgent(anonymousIdentity),
-  });
-  const hwLedger = LedgerCanister.create({
-    agent: await getCurrentAgent(identity),
-  });
-
   const spenderOwner = Principal.fromText("rdmx6-jaaaa-aaaaa-aaadq-cai");
-
-  await hwLedger.icrc2Approve({
+  // const hwLedger = LedgerCanister.create({
+  //   agent: await getCurrentAgent(identity),
+  // });
+  // await hwLedger.icrc2Approve({
+  //   spender: { owner: spenderOwner, subaccount: [] },
+  //   amount: 100_000_000n,
+  //   expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
+  // });
+  const hwLedger = IcrcLedgerCanister.create({
+    agent: await getCurrentAgent(identity),
+    // CHAT
+    canisterId: Principal.fromText("2ouva-viaaa-aaaaq-aaamq-cai"),
+    // ckBTC
+    // canisterId: Principal.fromText("mxzaz-hqaaa-aaaar-qaada-cai"),
+  });
+  await hwLedger.approve({
     spender: { owner: spenderOwner, subaccount: [] },
     amount: 100_000_000n,
     expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
   });
 
-  ok("Approved 1 ICP for spending.");
+  ok("Approved 1 token for spending.");
 }
 
 /**
@@ -813,6 +820,7 @@ async function run(f: () => void) {
     await f();
   } catch (error: any) {
     err(JSON.stringify(error, jsonReplacer));
+    err(error);
   }
 }
 
