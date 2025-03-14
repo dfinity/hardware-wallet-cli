@@ -37,7 +37,7 @@
   "dependencies": {
     "@dfinity/agent": "^2.1.2",
     "@dfinity/ledger-icrc": "^2.6.0",
-    "@dfinity/nns": "^7.0.0",
+    "@dfinity/nns": "^8.3.2",
     "@dfinity/principal": "^2.1.2",
     "@dfinity/sns": "^3.2.1",
     "@dfinity/utils": "^2.5.0",
