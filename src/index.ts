@@ -700,6 +700,20 @@ async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
   ok();
 }
 
+async function refreshVotingPower(neuronId: bigint) {
+  const identity = await getIdentity();
+  await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
+  const governance = GovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+  });
+
+  await governance.refreshVotingPower({
+    neuronId,
+  });
+
+  ok();
+}
+
 async function registerVote(neuronId: bigint, proposalId: bigint, vote: Vote) {
   if (!Object.values(Vote).includes(vote)) {
     throw new Error(
@@ -1216,6 +1230,11 @@ async function main() {
         .action((args) =>
           run(() => mergeNeurons(args.sourceNeuronId, args.targetNeuronId))
         )
+    )
+    .addCommand(
+      new Command("refresh-voting-power")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .action((args) => run(() => refreshVotingPower(args.neuronId)))
     )
     .addCommand(
       new Command("register-vote")
