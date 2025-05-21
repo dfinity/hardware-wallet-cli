@@ -344,7 +344,7 @@ export class LedgerIdentity extends SignIdentity {
     });
 
     // CHAT Ledger
-    const canisterId = Principal.fromText("2ouva-viaaa-aaaaq-aaamq-cai");
+    const canisterId = Principal.fromText("ekfwe-siaaa-aaaaf-qapta-cai");
     // CkBTC Ledger
     // const canisterId = Principal.fromText("mxzaz-hqaaa-aaaar-qaada-cai");
     // ICP Ledger
@@ -359,10 +359,7 @@ export class LedgerIdentity extends SignIdentity {
         },
         device_spec: [
           {
-            LineDisplay: {
-              characters_per_line: 35,
-              lines_per_page: 3,
-            },
+            FieldsDisplay: null,
           },
         ],
       },
@@ -401,21 +398,21 @@ export class LedgerIdentity extends SignIdentity {
       certificate,
     };
 
-    // fs.writeFileSync(
-    //   "output.json",
-    //   JSON.stringify(data, (key, value) => {
-    //     if (typeof value === "bigint") {
-    //       return value.toString();
-    //     }
-    //     if (value instanceof Principal) {
-    //       return value.toText();
-    //     }
-    //     if (value instanceof Uint8Array) {
-    //       return Array.from(value);
-    //     }
-    //     return value;
-    //   })
-    // );
+    fs.writeFileSync(
+      "output.json",
+      JSON.stringify(data, (key, value) => {
+        if (typeof value === "bigint") {
+          return value.toString();
+        }
+        if (value instanceof Principal) {
+          return value.toText();
+        }
+        if (value instanceof Uint8Array) {
+          return Array.from(value);
+        }
+        return value;
+      })
+    );
     const signature = await this.signBls(
       consentRequest,
       canisterCall,

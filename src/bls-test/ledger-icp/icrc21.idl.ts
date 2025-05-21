@@ -10,10 +10,7 @@ const icrc21_consent_message_spec = IDL.Record({
   device_spec: IDL.Opt(
     IDL.Variant({
       GenericDisplay: IDL.Null,
-      LineDisplay: IDL.Record({
-        characters_per_line: IDL.Nat16,
-        lines_per_page: IDL.Nat16,
-      }),
+      FieldsDisplay: IDL.Null,
     })
   ),
 });
@@ -25,8 +22,9 @@ export const icrc21_consent_message_request = IDL.Record({
 });
 
 const icrc21_consent_message = IDL.Variant({
-  LineDisplayMessage: IDL.Record({
-    pages: IDL.Vec(IDL.Record({ lines: IDL.Vec(IDL.Text) })),
+  FieldsDisplayMessage: IDL.Record({
+    intent: IDL.Text,
+    fields: IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
   }),
   GenericDisplayMessage: IDL.Text,
 });

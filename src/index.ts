@@ -779,7 +779,7 @@ async function callIcrc21() {
   const hwLedger = IcrcLedgerCanister.create({
     agent: await getCurrentAgent(identity),
     // CHAT
-    canisterId: Principal.fromText("2ouva-viaaa-aaaaq-aaamq-cai"),
+    canisterId: Principal.fromText("ekfwe-siaaa-aaaaf-qapta-cai"),
     // ckBTC
     // canisterId: Principal.fromText("mxzaz-hqaaa-aaaar-qaada-cai"),
   });
