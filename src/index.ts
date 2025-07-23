@@ -766,9 +766,8 @@ async function setNodeProviderAccount(account: AccountIdentifier) {
 
 async function callIcrc21() {
   const identity = await getIdentity();
-  const anonymousIdentity = new AnonymousIdentity();
-  await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
-  const spenderOwner = Principal.fromText("rdmx6-jaaaa-aaaaa-aaadq-cai");
+  // await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
+  // const spenderOwner = Principal.fromText("rdmx6-jaaaa-aaaaa-aaadq-cai");
   // const hwLedger = LedgerCanister.create({
   //   agent: await getCurrentAgent(identity),
   // });
@@ -792,8 +791,11 @@ async function callIcrc21() {
   //   expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
   // });
 
+  // const anonymousIdentity = new AnonymousIdentityWrapper();
+
   const actor = Actor.createActor(idlFactory, {
     agent: await getCurrentAgent(identity),
+    // agent: await getCurrentAgent(anonymousIdentity),
     canisterId: Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai"),
   });
 

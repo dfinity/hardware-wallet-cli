@@ -334,12 +334,18 @@ export class LedgerIdentity extends SignIdentity {
 
   public async transformRequest(request: HttpAgentRequest): Promise<unknown> {
     const { body, ...fields } = request;
+    if (body.request_type === "read_state") {
+      // There seems to be an error anyway because there is an initial read_state request
+      // that fails even with the AnonymousIdentityWrapper.
+      return request; // No need to transform read_state requests
+    }
+
     if (body.request_type === "call") {
       // Not always necessary.
       body.ingress_expiry = new Expiry(300_000);
     }
     const anonymousIdentity = new AnonymousIdentity();
-    const agent = new HttpAgent({
+    const anonymousAgent = await HttpAgent.create({
       identity: anonymousIdentity,
     });
 
@@ -373,15 +379,15 @@ export class LedgerIdentity extends SignIdentity {
     const icrc21ConsentMessageCall = {
       methodName: "icrc21_canister_call_consent_message",
       arg,
-      // callSync: true,
+      callSync: true,
     };
-    const submitResponse = await agent.call(
+    const submitResponse = await anonymousAgent.call(
       canisterId,
       icrc21ConsentMessageCall
     );
     const responseData = await this.getResponseData(
       submitResponse,
-      agent,
+      anonymousAgent,
       canisterId
     );
     const consentRequest = toHexString(
@@ -466,4 +472,21 @@ function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
     buffer.byteOffset,
     buffer.byteOffset + buffer.byteLength
   );
+}
+
+// This was used to prove that the the call to read_state also happens with the anonynoys identity.
+// The error has nothing to do with the ICRC-21 flow.
+export class AnonymousIdentityWrapper extends AnonymousIdentity {
+  public async transformRequest(request: HttpAgentRequest): Promise<unknown> {
+    const { body, ...fields } = request;
+    console.log("transformRequest", request);
+    if (body.request_type === "read_state") {
+      console.log("in da read_state");
+      if ("toText" in body.sender) {
+        console.log("sender is a Principal", body.sender.toText());
+      }
+      return request;
+    }
+    return request;
+  }
 }
