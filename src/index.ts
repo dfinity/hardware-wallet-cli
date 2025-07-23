@@ -36,7 +36,7 @@ import {
   isCurrentVersionSmallerThanFullCandidParser,
 } from "./utils";
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
-import { AnonymousIdentity, Identity } from "@dfinity/agent";
+import { Actor, AnonymousIdentity, Identity } from "@dfinity/agent";
 import { SnsGovernanceCanister, SnsNeuronId } from "@dfinity/sns";
 import {
   TokenAmountV2,
@@ -62,6 +62,7 @@ import "node-window-polyfill/register";
 // @ts-ignore (no types are available)
 import fetch from "node-fetch";
 import { Secp256k1PublicKey } from "./ledger/secp256k1";
+import { idlFactory } from "./bls-test/ledger-icp/icrc21.idl";
 
 (global as any).fetch = fetch;
 // Add polyfill for `window.fetch` for agent-js to work.
@@ -776,18 +777,27 @@ async function callIcrc21() {
   //   amount: 100_000_000n,
   //   expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
   // });
-  const hwLedger = IcrcLedgerCanister.create({
+  // const hwLedger = IcrcLedgerCanister.create({
+  //   agent: await getCurrentAgent(identity),
+  //   // CHAT
+  //   // canisterId: Principal.fromText("ekfwe-siaaa-aaaaf-qapta-cai"),
+  //   // ckBTC
+  //   // canisterId: Principal.fromText("mxzaz-hqaaa-aaaar-qaada-cai"),
+  //   // Test canister id
+  //   canisterId: Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai"),
+  // });
+  // await hwLedger.approve({
+  //   spender: { owner: spenderOwner, subaccount: [] },
+  //   amount: 100_000_000n,
+  //   expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
+  // });
+
+  const actor = Actor.createActor(idlFactory, {
     agent: await getCurrentAgent(identity),
-    // CHAT
-    canisterId: Principal.fromText("ekfwe-siaaa-aaaaf-qapta-cai"),
-    // ckBTC
-    // canisterId: Principal.fromText("mxzaz-hqaaa-aaaar-qaada-cai"),
+    canisterId: Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai"),
   });
-  await hwLedger.approve({
-    spender: { owner: spenderOwner, subaccount: [] },
-    amount: 100_000_000n,
-    expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
-  });
+
+  const response = await actor.greet("Hello, world!");
 
   ok("Approved 1 token for spending.");
 }

@@ -344,14 +344,16 @@ export class LedgerIdentity extends SignIdentity {
     });
 
     // CHAT Ledger
-    const canisterId = Principal.fromText("ekfwe-siaaa-aaaaf-qapta-cai");
+    // const canisterId = Principal.fromText("ekfwe-siaaa-aaaaf-qapta-cai");
     // CkBTC Ledger
     // const canisterId = Principal.fromText("mxzaz-hqaaa-aaaar-qaada-cai");
     // ICP Ledger
     // const canisterId = Principal.fromText("ryjl3-tyaaa-aaaaa-aaaba-cai");
+    // Test canister
+    const canisterId = Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai");
     const consentMessageArgs = {
       arg: body.arg,
-      method: "icrc2_approve",
+      method: "greet",
       user_preferences: {
         metadata: {
           language: "en",
