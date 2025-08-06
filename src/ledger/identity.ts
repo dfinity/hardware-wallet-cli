@@ -335,9 +335,16 @@ export class LedgerIdentity extends SignIdentity {
   public async transformRequest(request: HttpAgentRequest): Promise<unknown> {
     const { body, ...fields } = request;
     if (body.request_type === "read_state") {
-      // There seems to be an error anyway because there is an initial read_state request
-      // that fails even with the AnonymousIdentityWrapper.
-      return request; // No need to transform read_state requests
+      console.log("in da read_state", body);
+      const signature = await this.sign(_prepareCborForLedger(body));
+      return {
+        ...fields,
+        body: {
+          content: body,
+          sender_pubkey: this._publicKey.toDer(),
+          sender_sig: signature,
+        },
+      };
     }
 
     if (body.request_type === "call") {
@@ -426,6 +433,7 @@ export class LedgerIdentity extends SignIdentity {
       canisterCall,
       certificate
     );
+    console.log("after da signBls");
     return {
       ...fields,
       body: {

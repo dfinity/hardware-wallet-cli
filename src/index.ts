@@ -799,9 +799,16 @@ async function callIcrc21() {
     canisterId: Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai"),
   });
 
-  const response = await actor.greet("Hello, world!");
+  try {
+    const response = await actor.greet("Hello, world!");
+    console.log(`Response from ICRC21 canister: ${response}`);
 
-  ok("Approved 1 token for spending.");
+    ok("Approved 1 token for spending.");
+  } catch (error: any) {
+    console.log("in da catch");
+    console.log(error);
+    err(error);
+  }
 }
 
 /**
