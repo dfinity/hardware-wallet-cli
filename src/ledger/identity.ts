@@ -363,10 +363,13 @@ export class LedgerIdentity extends SignIdentity {
     // ICP Ledger
     // const canisterId = Principal.fromText("ryjl3-tyaaa-aaaaa-aaaba-cai");
     // Test canister
-    const canisterId = Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai");
+    // const canisterId = Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai");
+    // TESTICP Ledger canister id
+    const canisterId = Principal.fromText("xafvr-biaaa-aaaai-aql5q-cai");
     const consentMessageArgs = {
       arg: body.arg,
-      method: "greet",
+      // method: "greet",
+      method: body.method_name,
       user_preferences: {
         metadata: {
           language: "en",
@@ -397,6 +400,7 @@ export class LedgerIdentity extends SignIdentity {
       anonymousAgent,
       canisterId
     );
+    console.log("responseData", responseData);
     const consentRequest = toHexString(
       _prepareCborForLedger(submitResponse.requestDetails as CallRequest)
     );

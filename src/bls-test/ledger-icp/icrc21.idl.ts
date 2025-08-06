@@ -121,7 +121,7 @@ export const idlFactory = ({ IDL }) => {
     Err: icrc21_error,
   });
   return IDL.Service({
-    greet: IDL.Func([IDL.Text], [IDL.Text], ["query"]),
+    greet: IDL.Func([IDL.Text], [IDL.Text], []),
     icrc10_supported_standards: IDL.Func(
       [],
       [IDL.Vec(IDL.Record({ url: IDL.Text, name: IDL.Text }))],

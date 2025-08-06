@@ -767,7 +767,7 @@ async function setNodeProviderAccount(account: AccountIdentifier) {
 async function callIcrc21() {
   const identity = await getIdentity();
   // await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
-  // const spenderOwner = Principal.fromText("rdmx6-jaaaa-aaaaa-aaadq-cai");
+  const spenderOwner = Principal.fromText("rdmx6-jaaaa-aaaaa-aaadq-cai");
   // const hwLedger = LedgerCanister.create({
   //   agent: await getCurrentAgent(identity),
   // });
@@ -776,32 +776,37 @@ async function callIcrc21() {
   //   amount: 100_000_000n,
   //   expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
   // });
-  // const hwLedger = IcrcLedgerCanister.create({
-  //   agent: await getCurrentAgent(identity),
-  //   // CHAT
-  //   // canisterId: Principal.fromText("ekfwe-siaaa-aaaaf-qapta-cai"),
-  //   // ckBTC
-  //   // canisterId: Principal.fromText("mxzaz-hqaaa-aaaar-qaada-cai"),
-  //   // Test canister id
-  //   canisterId: Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai"),
-  // });
-  // await hwLedger.approve({
-  //   spender: { owner: spenderOwner, subaccount: [] },
-  //   amount: 100_000_000n,
-  //   expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
-  // });
+  const hwLedger = IcrcLedgerCanister.create({
+    agent: await getCurrentAgent(identity),
+    // CHAT
+    // canisterId: Principal.fromText("ekfwe-siaaa-aaaaf-qapta-cai"),
+    // ckBTC
+    // canisterId: Principal.fromText("mxzaz-hqaaa-aaaar-qaada-cai"),
+    // Test canister id
+    // canisterId: Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai"),
+    // TESTICP Ledger canister id
+    canisterId: Principal.fromText("xafvr-biaaa-aaaai-aql5q-cai"),
+  });
 
   // const anonymousIdentity = new AnonymousIdentityWrapper();
 
-  const actor = Actor.createActor(idlFactory, {
-    agent: await getCurrentAgent(identity),
-    // agent: await getCurrentAgent(anonymousIdentity),
-    canisterId: Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai"),
-  });
+  // const actor = Actor.createActor(idlFactory, {
+  //   agent: await getCurrentAgent(identity),
+  //   // agent: await getCurrentAgent(anonymousIdentity),
+  //   canisterId: Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai"),
+  // });
 
   try {
-    const response = await actor.greet("Hello, world!");
-    console.log(`Response from ICRC21 canister: ${response}`);
+    // const response = await actor.greet("Hello, world!");
+    // console.log(`Response from ICRC21 canister: ${response}`);
+
+    const response = await hwLedger.approve({
+      spender: { owner: spenderOwner, subaccount: [] },
+      amount: 100_000_000n,
+      expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
+    });
+
+    console.log(`Response from approve canister: ${response}`);
 
     ok("Approved 1 token for spending.");
   } catch (error: any) {
