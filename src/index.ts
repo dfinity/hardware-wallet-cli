@@ -327,6 +327,49 @@ async function icrcSendTokens({
   ok();
 }
 
+async function icrcApprove({
+  canisterId = MAINNET_LEDGER_CANISTER_ID,
+  amount,
+  spender,
+  expiresAt,
+  expectedAllowanceInMilliSeconds: expectedAllowanceInMilliSeconds,
+}: {
+  amount: TokenAmountV2;
+  spender: IcrcAccount;
+  canisterId: Principal;
+  expiresAt?: bigint;
+  expectedAllowanceInMilliSeconds?: bigint;
+}) {
+  const identity = await getIdentity();
+  const ledger = IcrcLedgerCanister.create({
+    agent: await getCurrentAgent(identity),
+    canisterId,
+  });
+  const anonymousLedger = IcrcLedgerCanister.create({
+    agent: await getCurrentAgent(new AnonymousIdentity()),
+    canisterId,
+  });
+  const fee = await anonymousLedger.transactionFee({});
+  const expectedAtNanoSeconds =
+    expectedAllowanceInMilliSeconds !== undefined
+      ? expectedAllowanceInMilliSeconds * BigInt(1_000_000)
+      : undefined;
+
+  await ledger.approve({
+    spender: {
+      owner: spender.owner,
+      subaccount: toNullable(spender.subaccount),
+    },
+    amount: amount.toE8s(),
+    fee,
+    created_at_time: nowInBigIntNanoSeconds(),
+    expires_at: expiresAt,
+    expected_allowance: expectedAtNanoSeconds,
+  });
+
+  ok();
+}
+
 /**
  * NNS Functionality
  */
@@ -380,13 +423,13 @@ async function showInfo(showOnDevice?: boolean) {
   const accountIdentifier = AccountIdentifier.fromPrincipal({
     principal: identity.getPrincipal(),
   });
-  const publicKey = identity.getPublicKey() as Secp256k1PublicKey;
+  const publicKey = identity.getPublicKey();
 
   log(chalk.bold(`Principal: `) + identity.getPrincipal());
   log(
     chalk.bold(`Address (${identity.derivePath}): `) + accountIdentifier.toHex()
   );
-  log(chalk.bold("Public key: ") + publicKey.toHex());
+  log(chalk.bold("Public key: ") + publicKey.toDer());
 
   if (showOnDevice) {
     log("Displaying the principal and the address on the device...");
@@ -714,6 +757,30 @@ async function refreshVotingPower(neuronId: bigint) {
   ok();
 }
 
+async function disburseNnsMaturity(
+  neuronId: bigint,
+  percentage: number,
+  toAccountIdentifier: string
+) {
+  console.log("in da disburse nns maturity func");
+  console.log("toAccountIdentifier: ", toAccountIdentifier);
+  console.log("neuronId: ", neuronId);
+  console.log("percentage: ", percentage);
+  const identity = await getIdentity();
+  await assertLedgerVersion({ identity, minVersion: "4.2.0" });
+  const governance = GovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+  });
+
+  await governance.disburseMaturity({
+    neuronId,
+    percentageToDisburse: percentage,
+    toAccountIdentifier,
+  });
+
+  ok();
+}
+
 async function registerVote(neuronId: bigint, proposalId: bigint, vote: Vote) {
   if (!Object.values(Vote).includes(vote)) {
     throw new Error(
@@ -855,6 +922,48 @@ async function main() {
         .action(({ to, amount, canisterId }) => {
           run(() => icrcSendTokens({ to, amount, canisterId }));
         })
+    )
+    .addCommand(
+      new Command("approve")
+        .description("Approve tokens for transfer from the ICRC wallet.")
+        .option(
+          "--canister-id <canister-id>",
+          "Canister ID (defaults to ICP Ledger)",
+          tryParsePrincipal
+        )
+        .requiredOption(
+          "--spender <account-identifier>",
+          "ICRC Account",
+          tryParseIcrcAccount
+        )
+        .requiredOption(
+          "--amount <amount>",
+          "Amount to transfer in e8s",
+          tryParseE8s
+        )
+        .option(
+          "--expires-at <timestamp>",
+          "Expiration timestamp (in milliseconds)",
+          tryParseBigInt
+        )
+        .option(
+          "--expected-allowance <amount>",
+          "Expected current allowance in decimals",
+          tryParseBigInt
+        )
+        .action(
+          ({ spender, amount, canisterId, expiresAt, expectedAllowance }) => {
+            run(() =>
+              icrcApprove({
+                spender,
+                amount,
+                canisterId,
+                expiresAt,
+                expectedAllowanceInMilliSeconds: expectedAllowance,
+              })
+            );
+          }
+        )
     );
 
   const snsNeuron = new Command("neuron")
@@ -1235,6 +1344,24 @@ async function main() {
       new Command("refresh-voting-power")
         .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
         .action((args) => run(() => refreshVotingPower(args.neuronId)))
+    )
+    .addCommand(
+      new Command("disburse-maturity")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .requiredOption(
+          "--percentage <percentage>",
+          "Percentage to disburse",
+          tryParseInt
+        )
+        .option(
+          "--to <to-account-identifier>",
+          "Account identifier to disburse to."
+        )
+        .action((args) =>
+          run(() =>
+            disburseNnsMaturity(args.neuronId, args.percentage, args.to)
+          )
+        )
     )
     .addCommand(
       new Command("register-vote")
