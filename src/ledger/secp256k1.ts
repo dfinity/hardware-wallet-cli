@@ -83,12 +83,12 @@ export class Secp256k1PublicKey implements PublicKey {
     return rawKey;
   }
 
-  readonly rawKey: ArrayBuffer;
+  readonly rawKey: Uint8Array;
   readonly derKey: DerEncodedPublicKey;
 
   // `fromRaw` and `fromDer` should be used for instantiation, not this constructor.
   private constructor(key: ArrayBuffer) {
-    this.rawKey = key;
+    this.rawKey = new Uint8Array(key);
     this.derKey = Secp256k1PublicKey.derEncode(key);
   }
 
@@ -96,7 +96,7 @@ export class Secp256k1PublicKey implements PublicKey {
     return this.derKey;
   }
 
-  public toRaw(): ArrayBuffer {
+  public toRaw(): Uint8Array {
     return this.rawKey;
   }
 
