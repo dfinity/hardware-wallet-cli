@@ -35,12 +35,12 @@
   },
   "homepage": "https://github.com/dfinity/hardware-wallet-cli#readme",
   "dependencies": {
-    "@dfinity/agent": "^2.1.2",
-    "@dfinity/ledger-icrc": "^2.6.0",
-    "@dfinity/nns": "^8.3.2",
-    "@dfinity/principal": "^2.1.2",
-    "@dfinity/sns": "^3.2.1",
-    "@dfinity/utils": "^2.5.0",
+    "@dfinity/agent": "^3",
+    "@dfinity/ledger-icrc": "^4.0.4",
+    "@dfinity/nns": "^10.2.0",
+    "@dfinity/principal": "^3",
+    "@dfinity/sns": "^4.1.0",
+    "@dfinity/utils": "^3",
     "@ledgerhq/hw-transport-node-hid-noevents": "^6.3.0",
     "@ledgerhq/hw-transport-webhid": "^6.27.1",
     "@zondax/ledger-icp": "^0.6.0",
@@ -50,7 +50,7 @@
     "node-window-polyfill": "^1.0.2"
   },
   "devDependencies": {
-    "@dfinity/cketh": "^3.3.1",
+    "@dfinity/cketh": "^4.0.4",
     "@esbuild-plugins/node-resolve": "^0.2.0",
     "@types/google-protobuf": "^3.15.6",
     "@types/node": "^17.0.16",
