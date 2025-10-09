@@ -38,11 +38,18 @@ import {
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
 import { AnonymousIdentity, Identity } from "@dfinity/agent";
 import { SnsGovernanceCanister, SnsNeuronId } from "@dfinity/sns";
-import { TokenAmountV2, fromNullable, toNullable } from "@dfinity/utils";
 import {
+  TokenAmountV2,
+  fromNullable,
+  isNullish,
+  toNullable,
+} from "@dfinity/utils";
+import {
+  decodeIcrcAccount,
   encodeIcrcAccount,
   IcrcAccount,
   IcrcLedgerCanister,
+  toTransferArg,
 } from "@dfinity/ledger-icrc";
 import chalk from "chalk";
 import {
@@ -293,13 +300,23 @@ async function icrcGetBalance(
   ok(`Account ${encodeIcrcAccount(account)} has balance ${balance} e8s`);
 }
 
+async function supportedLedgers() {
+  const identity = await getIdentity();
+  const supportedTokens = await identity.getSupportedTokens();
+  const ledgersTextInfo = supportedTokens.map(
+    (ledger) =>
+      `Token Symbol: ${ledger.tokenSymbol}, Canister Id: ${ledger.canisterId}, Decimals: ${ledger.decimals}`
+  );
+  ok(`Supported ledgers: ${ledgersTextInfo.join("\n")}`);
+}
+
 // TODO: Add support for subaccounts
 async function icrcSendTokens({
   canisterId = MAINNET_LEDGER_CANISTER_ID,
   amount,
   to,
 }: {
-  amount: TokenAmountV2;
+  amount: bigint;
   to: IcrcAccount;
   canisterId: Principal;
 }) {
@@ -319,7 +336,7 @@ async function icrcSendTokens({
       owner: to.owner,
       subaccount: toNullable(to.subaccount),
     },
-    amount: amount.toE8s(),
+    amount: amount,
     fee,
     created_at_time: nowInBigIntNanoSeconds(),
   });
@@ -821,6 +838,11 @@ async function main() {
         .action((args) => run(() => icrcGetBalance(args.canisterId)))
     )
     .addCommand(
+      new Command("supported-tokens")
+        .description("Get supported tokens of the ledger device.")
+        .action((args) => run(supportedLedgers))
+    )
+    .addCommand(
       new Command("transfer")
         .description("Send tokens from the ICRC wallet to another account.")
         .option(
@@ -836,7 +858,7 @@ async function main() {
         .requiredOption(
           "--amount <amount>",
           "Amount to transfer in e8s",
-          tryParseE8s
+          tryParseBigInt
         )
         .action(({ to, amount, canisterId }) => {
           run(() => icrcSendTokens({ to, amount, canisterId }));
