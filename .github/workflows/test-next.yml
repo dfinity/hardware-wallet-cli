@@ -1,0 +1,25 @@
+name: Fix Next Workflow
+
+on:
+  push:
+    branches:
+      - fix-workflow
+
+jobs:
+  fix-nightly:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm install -g npm@11
+      - name: Package next
+        run: ./scripts/package-next
+
