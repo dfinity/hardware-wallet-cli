@@ -9,6 +9,12 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
+run-name: >-
+  ${{
+    github.event_name == 'release' && 'Publish Release'
+    || (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && 'Next Publication'
+    || 'Publish Release' }}
+
 jobs:
   publish:
     if: github.event_name == 'release'
