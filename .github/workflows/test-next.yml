@@ -21,7 +21,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: npm install -g npm
       - name: Install lsusb
-        run: sudo apt-get install -y usbutils
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libusb-1.0-0-dev
       - name: Package next
         run: ./scripts/package-next
 
