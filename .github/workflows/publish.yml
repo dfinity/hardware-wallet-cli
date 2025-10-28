@@ -1,19 +1,28 @@
 name: Publish Release
 
 on:
+  # Release
   release:
     types: [released]
+  # Nightly
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
 
 jobs:
   publish:
+    if: github.event_name == 'release'
     runs-on: ubuntu-20.04
-
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+        uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
-          node-version: '18.x'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - run: npm install -g npm
       - name: Install Dependencies
@@ -25,4 +34,28 @@ jobs:
       - name: Publish
         run: npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+          NPM_CONFIG_PROVENANCE: 'true'
+
+  publish-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-20.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm install -g npm
+      - name: Package next
+        run: ./scripts/package-next
+      - name: Set up npm
+        run: printf '%s\n' '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' registry=https://registry.npmjs.org/ always-auth=true >> .npmrc
+      - name: Publish
+        run: npm publish --provenance --tag next
+        env:
+          NPM_CONFIG_PROVENANCE: 'true'
