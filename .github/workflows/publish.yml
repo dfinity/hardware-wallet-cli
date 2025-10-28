@@ -18,7 +18,7 @@ run-name: >-
 jobs:
   publish:
     if: github.event_name == 'release'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     environment: release
     permissions:
       contents: read
@@ -42,7 +42,7 @@ jobs:
 
   publish-nightly:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     environment: release
     permissions:
       contents: read
