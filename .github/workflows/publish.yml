@@ -30,7 +30,13 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm install -g npm@11
+      - name: Install OS dependencies
+        run: |
+          sudo apt-get update
+          # Required for USB functionality
+          sudo apt-get install -y libusb-1.0-0-dev
+          # Required for Linux udev/device detection
+          sudo apt-get install -y libudev-dev
       - name: Install Dependencies
         run: npm ci
       - name: Build
@@ -54,7 +60,13 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm install -g npm@11
+      - name: Install OS dependencies
+        run: |
+          sudo apt-get update
+          # Required for USB functionality
+          sudo apt-get install -y libusb-1.0-0-dev
+          # Required for Linux udev/device detection
+          sudo apt-get install -y libudev-dev
       - name: Package next
         run: ./scripts/package-next
       - name: Publish
