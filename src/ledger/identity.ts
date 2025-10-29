@@ -8,7 +8,7 @@ import {
   SignIdentity,
 } from "@dfinity/agent";
 import { Principal } from "@dfinity/principal";
-import LedgerApp, { LedgerError, ResponseSign } from "@zondax/ledger-icp";
+import LedgerApp, { ResponseSign, TokenInfo } from "@zondax/ledger-icp";
 import { Secp256k1PublicKey } from "./secp256k1";
 
 // @ts-ignore (no types are available)
@@ -18,6 +18,7 @@ import TransportNodeHidNoEvents from "@ledgerhq/hw-transport-node-hid-noevents";
 // Add polyfill for `window.fetch` for agent-js to work.
 // @ts-ignore (no types are available)
 import fetch from "node-fetch";
+import { isNullish, nonNullish } from "@dfinity/utils";
 global.fetch = fetch;
 
 /**
@@ -101,7 +102,6 @@ export class LedgerIdentity extends SignIdentity {
       }
     }
   }
-
   private static async _fetchPublicKeyFromDevice(
     app: LedgerApp,
     derivePath: string
@@ -110,11 +110,13 @@ export class LedgerIdentity extends SignIdentity {
     // @ts-ignore
     if (resp.returnCode == 28161) {
       throw "Please open the Internet Computer app on your wallet and try again.";
-    } else if (resp.returnCode == LedgerError.TransactionRejected) {
+    } else if (resp.returnCode == 65535) {
       throw "Ledger Wallet is locked. Unlock it and try again.";
       // @ts-ignore
     } else if (resp.returnCode == 65535) {
       throw "Unable to fetch the public key. Please try again.";
+    } else if (isNullish(resp.publicKey)) {
+      throw "Public key not available. Please try again.";
     }
 
     // This type doesn't have the right fields in it, so we have to manually type it.
@@ -152,11 +154,26 @@ export class LedgerIdentity extends SignIdentity {
   public async getVersion(): Promise<Version> {
     return this._executeWithApp(async (app: LedgerApp) => {
       const res = await app.getVersion();
+      // TODO: What would it mean if there is no version? Should we throw an error?
       return {
-        major: res.major,
-        minor: res.minor,
-        patch: res.patch,
+        major: res.major ?? 0,
+        minor: res.minor ?? 0,
+        patch: res.patch ?? 0,
       };
+    });
+  }
+
+  public async getSupportedTokens(): Promise<TokenInfo[]> {
+    return this._executeWithApp(async (app: LedgerApp) => {
+      const res = await app.tokenRegistry();
+      if (nonNullish(res.tokenRegistry)) {
+        return res.tokenRegistry;
+      }
+      throw new Error(
+        `A ledger error happened during token registry fetch:
+          Code: ${res.returnCode}
+          Message: ${JSON.stringify(res.errorMessage)}`
+      );
     });
   }
 
