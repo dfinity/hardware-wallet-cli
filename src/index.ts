@@ -776,7 +776,7 @@ async function callIcrc21() {
   //   amount: 100_000_000n,
   //   expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
   // });
-  const hwLedger = IcrcLedgerCanister.create({
+  const ledgerCanister = IcrcLedgerCanister.create({
     agent: await getCurrentAgent(identity),
     // CHAT
     // canisterId: Principal.fromText("ekfwe-siaaa-aaaaf-qapta-cai"),
@@ -800,7 +800,7 @@ async function callIcrc21() {
     // const response = await actor.greet("Hello, world!");
     // console.log(`Response from ICRC21 canister: ${response}`);
 
-    const response = await hwLedger.approve({
+    const response = await ledgerCanister.approve({
       spender: { owner: spenderOwner, subaccount: [] },
       amount: 100_000_000n,
       expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
