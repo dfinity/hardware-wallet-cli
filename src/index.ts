@@ -38,7 +38,12 @@ import {
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
 import { AnonymousIdentity, Identity } from "@dfinity/agent";
 import { SnsGovernanceCanister, SnsNeuronId } from "@dfinity/sns";
-import { TokenAmountV2, fromNullable, toNullable } from "@dfinity/utils";
+import {
+  TokenAmountV2,
+  fromNullable,
+  toNullable,
+  uint8ArrayToArrayOfNumber,
+} from "@dfinity/utils";
 import {
   encodeIcrcAccount,
   IcrcAccount,
@@ -57,6 +62,7 @@ import "node-window-polyfill/register";
 // @ts-ignore (no types are available)
 import fetch from "node-fetch";
 import { Secp256k1PublicKey } from "./ledger/secp256k1";
+import { isUint8Array } from "util/types";
 
 (global as any).fetch = fetch;
 // Add polyfill for `window.fetch` for agent-js to work.
@@ -331,14 +337,14 @@ async function icrcApprove({
   canisterId = MAINNET_LEDGER_CANISTER_ID,
   amount,
   spender,
-  expiresAt,
-  expectedAllowanceInMilliSeconds: expectedAllowanceInMilliSeconds,
+  expiresAtMillis,
+  expectedAllowance,
 }: {
   amount: TokenAmountV2;
   spender: IcrcAccount;
   canisterId: Principal;
-  expiresAt?: bigint;
-  expectedAllowanceInMilliSeconds?: bigint;
+  expiresAtMillis?: bigint;
+  expectedAllowance?: bigint;
 }) {
   const identity = await getIdentity();
   const ledger = IcrcLedgerCanister.create({
@@ -350,9 +356,9 @@ async function icrcApprove({
     canisterId,
   });
   const fee = await anonymousLedger.transactionFee({});
-  const expectedAtNanoSeconds =
-    expectedAllowanceInMilliSeconds !== undefined
-      ? expectedAllowanceInMilliSeconds * BigInt(1_000_000)
+  const expiresAtNanos =
+    expiresAtMillis !== undefined
+      ? expiresAtMillis * BigInt(1_000_000)
       : undefined;
 
   await ledger.approve({
@@ -363,8 +369,8 @@ async function icrcApprove({
     amount: amount.toE8s(),
     fee,
     created_at_time: nowInBigIntNanoSeconds(),
-    expires_at: expiresAt,
-    expected_allowance: expectedAtNanoSeconds,
+    expires_at: expiresAtNanos,
+    expected_allowance: expectedAllowance,
   });
 
   ok();
@@ -760,22 +766,30 @@ async function refreshVotingPower(neuronId: bigint) {
 async function disburseNnsMaturity(
   neuronId: bigint,
   percentage: number,
-  toAccountIdentifier: string
+  toAccountIdentifier: string,
+  toIcrcAccount?: IcrcAccount
 ) {
-  console.log("in da disburse nns maturity func");
-  console.log("toAccountIdentifier: ", toAccountIdentifier);
-  console.log("neuronId: ", neuronId);
-  console.log("percentage: ", percentage);
   const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: "4.2.0" });
   const governance = GovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
+  let toAccount;
+  if (toIcrcAccount) {
+    toAccount = {
+      owner: toIcrcAccount.owner,
+      subaccount: isUint8Array(toIcrcAccount.subaccount)
+        ? uint8ArrayToArrayOfNumber(toIcrcAccount.subaccount)
+        : undefined,
+    };
+  }
+
   await governance.disburseMaturity({
     neuronId,
     percentageToDisburse: percentage,
     toAccountIdentifier,
+    toAccount,
   });
 
   ok();
@@ -958,8 +972,8 @@ async function main() {
                 spender,
                 amount,
                 canisterId,
-                expiresAt,
-                expectedAllowanceInMilliSeconds: expectedAllowance,
+                expiresAtMillis: expiresAt,
+                expectedAllowance: expectedAllowance,
               })
             );
           }
@@ -1354,12 +1368,22 @@ async function main() {
           tryParseInt
         )
         .option(
-          "--to <to-account-identifier>",
+          "--to-identifier <to-account-identifier>",
           "Account identifier to disburse to."
+        )
+        .option(
+          "--to-icrc <to-icrc-account>",
+          "ICRC Account to disburse to.",
+          tryParseIcrcAccount
         )
         .action((args) =>
           run(() =>
-            disburseNnsMaturity(args.neuronId, args.percentage, args.to)
+            disburseNnsMaturity(
+              args.neuronId,
+              args.percentage,
+              args.toIdentifier,
+              args.toIcrc
+            )
           )
         )
     )
