@@ -36,9 +36,14 @@ import {
   isCurrentVersionSmallerThanFullCandidParser,
 } from "./utils";
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
-import { AnonymousIdentity, Identity } from "@dfinity/agent";
+import { Actor, AnonymousIdentity, Identity } from "@dfinity/agent";
 import { SnsGovernanceCanister, SnsNeuronId } from "@dfinity/sns";
-import { TokenAmountV2, fromNullable, toNullable } from "@dfinity/utils";
+import {
+  TokenAmountV2,
+  fromNullable,
+  jsonReplacer,
+  toNullable,
+} from "@dfinity/utils";
 import {
   encodeIcrcAccount,
   IcrcAccount,
@@ -57,6 +62,7 @@ import "node-window-polyfill/register";
 // @ts-ignore (no types are available)
 import fetch from "node-fetch";
 import { Secp256k1PublicKey } from "./ledger/secp256k1";
+import { idlFactory } from "./bls-test/ledger-icp/icrc21.idl";
 
 (global as any).fetch = fetch;
 // Add polyfill for `window.fetch` for agent-js to work.
@@ -758,6 +764,58 @@ async function setNodeProviderAccount(account: AccountIdentifier) {
   ok();
 }
 
+async function callIcrc21() {
+  const identity = await getIdentity();
+  // await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
+  const spenderOwner = Principal.fromText("rdmx6-jaaaa-aaaaa-aaadq-cai");
+  // const hwLedger = LedgerCanister.create({
+  //   agent: await getCurrentAgent(identity),
+  // });
+  // await hwLedger.icrc2Approve({
+  //   spender: { owner: spenderOwner, subaccount: [] },
+  //   amount: 100_000_000n,
+  //   expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
+  // });
+  const ledgerCanister = IcrcLedgerCanister.create({
+    agent: await getCurrentAgent(identity),
+    // CHAT
+    // canisterId: Principal.fromText("ekfwe-siaaa-aaaaf-qapta-cai"),
+    // ckBTC
+    // canisterId: Principal.fromText("mxzaz-hqaaa-aaaar-qaada-cai"),
+    // Test canister id
+    // canisterId: Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai"),
+    // TESTICP Ledger canister id
+    canisterId: Principal.fromText("xafvr-biaaa-aaaai-aql5q-cai"),
+  });
+
+  // const anonymousIdentity = new AnonymousIdentityWrapper();
+
+  // const actor = Actor.createActor(idlFactory, {
+  //   agent: await getCurrentAgent(identity),
+  //   // agent: await getCurrentAgent(anonymousIdentity),
+  //   canisterId: Principal.fromText("suje7-zaaaa-aaaad-abnzq-cai"),
+  // });
+
+  try {
+    // const response = await actor.greet("Hello, world!");
+    // console.log(`Response from ICRC21 canister: ${response}`);
+
+    const response = await ledgerCanister.approve({
+      spender: { owner: spenderOwner, subaccount: [] },
+      amount: 100_000_000n,
+      expires_at: BigInt(Date.now() * 1_000_000 + 1_000_000_000 * 60 * 60 * 24),
+    });
+
+    console.log(`Response from approve canister: ${response}`);
+
+    ok("Approved 1 token for spending.");
+  } catch (error: any) {
+    console.log("in da catch");
+    console.log(error);
+    err(error);
+  }
+}
+
 /**
  * Fetches the balance of the main account on the wallet.
  */
@@ -785,6 +843,7 @@ async function run(f: () => void) {
   try {
     await f();
   } catch (error: any) {
+    err(JSON.stringify(error, jsonReplacer));
     err(error);
   }
 }
@@ -1306,6 +1365,11 @@ async function main() {
         )
         .action((args) => run(() => setNodeProviderAccount(args.account)))
     );
+
+  const icrc21 = new Command("icrc-21")
+    .description("Commands for making ICRC 21 calls.")
+    .showSuggestionAfterError()
+    .addCommand(new Command("call").action((args) => run(() => callIcrc21())));
   program
     .description("A CLI for the Ledger hardware wallet.")
     .enablePositionalOptions()
@@ -1333,7 +1397,8 @@ async function main() {
     .addCommand(neuron)
     .addCommand(sns)
     .addCommand(icrc)
-    .addCommand(nodeProvider);
+    .addCommand(nodeProvider)
+    .addCommand(icrc21);
 
   await program.parseAsync(process.argv);
 }

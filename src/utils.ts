@@ -100,12 +100,13 @@ export async function getAgent(
   // Only fetch the rootkey if the network isn't mainnet.
   const fetchRootKey = new URL(network).host == "ic0.app" ? false : true;
 
-  const agent = new HttpAgent({
+  const agent = await HttpAgent.create({
     host: network,
     identity: identity,
   });
 
   if (fetchRootKey) {
+    console.log("Fetching root key for agent...");
     await agent.fetchRootKey();
   }
 
