@@ -107,13 +107,12 @@ export class LedgerIdentity extends SignIdentity {
     derivePath: string
   ): Promise<Secp256k1PublicKey> {
     const resp = await app.getAddressAndPubKey(derivePath);
-    // @ts-ignore
-    if (resp.returnCode == 28161) {
+    // Code references: https://github.com/Zondax/ledger-js/blob/799b056c0ed40af06d375b2b6220c0316f272fe7/src/consts.ts#L31
+    if (resp.returnCode == 0x6e01) {
       throw "Please open the Internet Computer app on your wallet and try again.";
-    } else if (resp.returnCode == 65535) {
+    } else if (resp.returnCode == 0x5515) {
       throw "Ledger Wallet is locked. Unlock it and try again.";
-      // @ts-ignore
-    } else if (resp.returnCode == 65535) {
+    } else if (resp.returnCode == 0xffff) {
       throw "Unable to fetch the public key. Please try again.";
     } else if (isNullish(resp.publicKey)) {
       throw "Public key not available. Please try again.";
@@ -154,11 +153,21 @@ export class LedgerIdentity extends SignIdentity {
   public async getVersion(): Promise<Version> {
     return this._executeWithApp(async (app: LedgerApp) => {
       const res = await app.getVersion();
-      // TODO: What would it mean if there is no version? Should we throw an error?
+      if (
+        isNullish(res.major) ||
+        isNullish(res.minor) ||
+        isNullish(res.patch)
+      ) {
+        throw new Error(
+          `A ledger error happened during version fetch:
+          Code: ${res.returnCode}
+          Message: ${JSON.stringify(res.errorMessage)}`
+        );
+      }
       return {
-        major: res.major ?? 0,
-        minor: res.minor ?? 0,
-        patch: res.patch ?? 0,
+        major: res.major,
+        minor: res.minor,
+        patch: res.patch,
       };
     });
   }
