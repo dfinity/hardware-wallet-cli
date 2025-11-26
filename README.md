@@ -21,12 +21,7 @@ A CLI to interact with the Internet Computer App on Ledger Nano S/X devices.
   - If you don't have mise install, you can install it with `curl https://mise.run | sh`
 - Install dependencies with `npm install`.
 
-To execute a command, you can use `npm run execute -- <args>`.
-
-For example
-
-- The command `ic-hardware-wallet --network https://nnsdapp.dfinity.network icp balance`.
-- Would be `npm run execute -- --network http://127.0.0.1:4943 icp balance` for development.
+To execute a command, you can use `just run <args>`. Example: `just run --help`
 
 ## USB connection issues with Ledger Live
 
