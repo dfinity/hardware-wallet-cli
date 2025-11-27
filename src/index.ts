@@ -443,8 +443,7 @@ async function stakeNeuron(stake: TokenAmountV2) {
       err(`Cannot stake less than ${error.minimumAmount} e8s`);
     } else if (error instanceof InsufficientFundsError) {
       err(
-        `Your account has insufficient funds (${
-          (error as InsufficientFundsError).balance
+        `Your account has insufficient funds (${(error as InsufficientFundsError).balance
         } e8s)`
       );
     } else {
@@ -819,8 +818,8 @@ function err(error: any) {
     error instanceof GovernanceError
       ? error.detail.error_message
       : error instanceof Error
-      ? error.message
-      : error;
+        ? error.message
+        : error;
   log(`${chalk.bold(chalk.red("Error:"))} ${message}`);
 }
 
@@ -845,19 +844,19 @@ async function main() {
     .addCommand(
       new Command("transfer")
         .description("Send tokens from the ICRC wallet to another account.")
-        .option(
+        .requiredOption(
           "--canister-id <canister-id>",
-          "Canister ID (defaults to ICP Ledger)",
+          "ICRC ledger Canister ID",
           tryParsePrincipal
         )
         .requiredOption(
-          "--to <account-identifier>",
+          "--to <account>",
           "ICRC Account",
           tryParseIcrcAccount
         )
         .requiredOption(
           "--amount <amount>",
-          "Amount to transfer in e8s",
+          "Amount to transfer in ledger's base unit",
           tryParseBigInt
         )
         .action(({ to, amount, canisterId }) => {
