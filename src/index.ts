@@ -608,6 +608,7 @@ async function refreshVotingPower(neuronId: bigint | "all") {
 
   if (neuronId === "all") {
     const neurons = await governance.listNeurons({ certified: true });
+    // We don't refresh neurons with no ICP, they'll be garbage collected by the governance canister.
     const validNeurons = neurons.filter(hasValidStake);
 
     if (validNeurons.length === 0) {
