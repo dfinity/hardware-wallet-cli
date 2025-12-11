@@ -148,7 +148,7 @@ export class LedgerIdentity extends SignIdentity {
   }
 
   /**
-   * @returns The verion of the `Internet Computer' app installed on the Ledger device.
+   * @returns The version of the `Internet Computer' app installed on the Ledger device.
    */
   public async getVersion(): Promise<Version> {
     return this._executeWithApp(async (app: LedgerApp) => {

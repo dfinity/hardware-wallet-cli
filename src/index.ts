@@ -11,6 +11,7 @@ import {
   InsufficientAmountError,
   Vote,
   Topic,
+  type ClaimOrRefreshNeuronRequest,
 } from "@dfinity/nns";
 import {
   tryParseAccountIdentifier,
@@ -593,6 +594,39 @@ async function enableAutoStake(neuronId: bigint, autoStake: boolean) {
   });
 
   ok();
+}
+
+/**
+ * Refreshes the voting power of a neuron.
+ * @param neuronId The ID of the neuron to refresh, or "all" to refresh all neurons.
+ */
+async function refreshVotingPower(neuronId: bigint | "all") {
+  const identity = await getIdentity();
+  const governance = GovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+  });
+
+  if (neuronId === "all") {
+    const neurons = await governance.listNeurons({ certified: true });
+    const validNeurons = neurons.filter(hasValidStake);
+
+    if (validNeurons.length === 0) {
+      ok("No neurons found to refresh.");
+      return;
+    }
+
+    for (const neuron of validNeurons) {
+      await governance.claimOrRefreshNeuron({
+        neuronId: neuron.neuronId,
+        by: undefined,
+      });
+      log(`Refreshed voting power of neuron ${neuron.neuronId}`);
+    }
+    ok(`Successfully refreshed voting power for ${validNeurons.length} neuron(s).`);
+  } else {
+    await governance.claimOrRefreshNeuron({ neuronId, by: undefined });
+    ok(`Successfully refreshed the voting power of neuron ${neuronId}`);
+  }
 }
 
 async function startDissolving(neuronId: bigint) {
@@ -1288,6 +1322,27 @@ async function main() {
       new Command("claim")
         .description("Claim the caller's GTC neurons.")
         .action((args) => run(() => claimNeurons()))
+    )
+    .addCommand(
+      new Command("refresh-voting-power")
+        .description("Refresh the voting power of a neuron.")
+        .option("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .option("--all", "Refresh all neurons")
+        .action((args) => {
+          if (args.all && args.neuronId) {
+            console.error(
+              "Error: Cannot use both --neuron-id and --all.\nUse --neuron-id <ID> to refresh a specific neuron, or --all to refresh all neurons."
+            );
+            process.exit(1);
+          }
+          if (!args.all && !args.neuronId) {
+            console.error(
+              "Error: Missing target neuron.\nUse --neuron-id <ID> to refresh a specific neuron, or --all to refresh all neurons."
+            );
+            process.exit(1);
+          }
+          run(() => refreshVotingPower(args.all ? "all" : args.neuronId));
+        })
     );
 
   const icp = new Command("icp")
