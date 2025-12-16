@@ -617,16 +617,16 @@ async function refreshVotingPower(neuronId: bigint | "all") {
     }
 
     for (const neuron of validNeurons) {
-      await governance.claimOrRefreshNeuron({
+      const refreshedNeuronId = await governance.claimOrRefreshNeuron({
         neuronId: neuron.neuronId,
         by: undefined,
       });
-      log(`Refreshed voting power of neuron ${neuron.neuronId}`);
+      log(`Refreshed voting power of neuron ${refreshedNeuronId}`);
     }
     ok(`Successfully refreshed voting power for ${validNeurons.length} neuron(s).`);
   } else {
-    await governance.claimOrRefreshNeuron({ neuronId, by: undefined });
-    ok(`Successfully refreshed the voting power of neuron ${neuronId}`);
+    const refreshedNeuronId = await governance.claimOrRefreshNeuron({ neuronId, by: undefined });
+    ok(`Successfully refreshed voting power of neuron ${refreshedNeuronId}`);
   }
 }
 
