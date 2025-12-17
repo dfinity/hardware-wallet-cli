@@ -617,6 +617,38 @@ async function stopDissolving(neuronId: bigint) {
   ok();
 }
 
+async function disburseNnsMaturity(
+    neuronId: bigint,
+    percentage: number,
+    toAccountIdentifier: string,
+    toIcrcAccount?: IcrcAccount
+) {
+  const identity = await getIdentity();
+  await assertLedgerVersion({ identity, minVersion: "4.2.0" });
+  const governance = GovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+  });
+
+  let toAccount;
+  if (toIcrcAccount) {
+    toAccount = {
+      owner: toIcrcAccount.owner,
+      subaccount: isUint8Array(toIcrcAccount.subaccount)
+          ? uint8ArrayToArrayOfNumber(toIcrcAccount.subaccount)
+          : undefined,
+    };
+  }
+
+  await governance.disburseMaturity({
+    neuronId,
+    percentageToDisburse: percentage,
+    toAccountIdentifier,
+    toAccount,
+  });
+
+  ok();
+}
+
 async function joinCommunityFund(neuronId: bigint) {
   const identity = await getIdentity();
   // Even though joining is supported for earler version
@@ -1288,6 +1320,35 @@ async function main() {
       new Command("claim")
         .description("Claim the caller's GTC neurons.")
         .action((args) => run(() => claimNeurons()))
+    )
+    .addCommand(
+      new Command("disburse-maturity")
+        .description("Disburse NNS maturity from a neuron.")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .requiredOption(
+            "--percentage <percentage>",
+            "Percentage to disburse",
+            tryParseInt
+        )
+        .option(
+            "--to-identifier <to-account-identifier>",
+            "Account identifier to disburse to."
+        )
+        .option(
+            "--to-icrc <to-icrc-account>",
+            "ICRC Account to disburse to.",
+            tryParseIcrcAccount
+        )
+        .action((args) =>
+            run(() =>
+                disburseNnsMaturity(
+                    args.neuronId,
+                    args.percentage,
+                    args.toIdentifier,
+                    args.toIcrc
+                )
+            )
+        )
     );
 
   const icp = new Command("icp")
