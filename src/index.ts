@@ -11,7 +11,6 @@ import {
   InsufficientAmountError,
   Vote,
   Topic,
-  type ClaimOrRefreshNeuronRequest,
 } from "@dfinity/nns";
 import {
   tryParseAccountIdentifier,
