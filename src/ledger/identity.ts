@@ -80,14 +80,14 @@ export class LedgerIdentity extends SignIdentity {
    */
   private static async _connect(): Promise<[LedgerApp, Transport]> {
     async function getTransport() {
-      // In Node.js CLI, always use the Node HID transport
-      // WebHID is only for browsers and may not be properly available
-      const nodeHidSupported = typeof TransportNodeHidNoEvents.isSupported === 'function' 
-        ? await TransportNodeHidNoEvents.isSupported() 
-        : true; // Assume supported if we can't check
-      
-      if (nodeHidSupported && TransportNodeHidNoEvents.list) {
-        // CLI environment - use open() directly to avoid bug in create()
+      if (await TransportWebHID.isSupported()) {
+        // We're in a web browser.
+        return TransportWebHID.create();
+      } else if (await TransportNodeHidNoEvents.isSupported()) {
+        // CLI environment.
+        // Use list() + open() instead of create() to work around a bug in the
+        // @ledgerhq library that throws "Cannot access 'X' before initialization"
+        // when no device is connected.
         const devices = await TransportNodeHidNoEvents.list();
         if (devices.length === 0) {
           const err = new Error("No Ledger device found") as Error & { id: string };
@@ -95,12 +95,9 @@ export class LedgerIdentity extends SignIdentity {
           throw err;
         }
         return TransportNodeHidNoEvents.open(devices[0]);
-      } else if (typeof TransportWebHID.isSupported === 'function' && await TransportWebHID.isSupported()) {
-        // We're in a web browser.
-        return TransportWebHID.create();
       } else {
         // Unknown environment.
-        throw Error("No supported transport found");
+        throw Error();
       }
     }
 
@@ -109,16 +106,19 @@ export class LedgerIdentity extends SignIdentity {
       const app = new LedgerApp(transport);
       return [app, transport];
     } catch (err) {
-      const error = err as Error & { id?: string };
-      if (error.id === "NoDeviceFound") {
-        throw new Error("No Ledger device found. Is the wallet connected and unlocked?");
-      } else if (error.message?.includes("cannot open device with path")) {
-        throw new Error("Cannot connect to Ledger device. Please close all other wallet applications (e.g. Ledger Live) and try again.");
-      } else if (error.message?.includes("Cannot access") || error.name === "ReferenceError") {
-        // This can happen due to a bug in @ledgerhq packages with certain Node.js versions
-        throw new Error("No Ledger device found. Please connect your Ledger device and open the Internet Computer app.");
+      // @ts-ignore
+      if (err.id && err.id == "NoDeviceFound") {
+        throw "No Ledger device found. Is the wallet connected and unlocked?";
+      } else if (
+        // @ts-ignore
+        err.message &&
+        // @ts-ignore
+        err.message.includes("cannot open device with path")
+      ) {
+        throw "Cannot connect to Ledger device. Please close all other wallet applications (e.g. Ledger Live) and try again.";
       } else {
-        throw new Error(`Cannot connect to Ledger Wallet. Please make sure:\n- Your Ledger device is connected and unlocked\n- The Internet Computer app is open on your Ledger\n- No other wallet applications (e.g. Ledger Live) are running\n\nError: ${error.message || err}`);
+        // Unsupported browser. Data on browser compatibility is taken from https://caniuse.com/webhid
+        throw `Cannot connect to Ledger Wallet. Either you have other wallet applications open (e.g. Ledger Live), or your browser doesn't support WebHID, which is necessary to communicate with your Ledger hardware wallet.\n\nSupported browsers:\n* Chrome (Desktop) v89+\n* Edge v89+\n* Opera v76+\n\nError: ${err}`;
       }
     }
   }
