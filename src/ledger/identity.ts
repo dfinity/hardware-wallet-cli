@@ -18,7 +18,6 @@ import { Secp256k1PublicKey } from "./secp256k1";
 
 // @ts-ignore (no types are available)
 import * as TransportWebHIDModule from "@ledgerhq/hw-transport-webhid";
-// @ts-ignore (no types are available)
 import * as TransportNodeHidNoEventsModule from "@ledgerhq/hw-transport-node-hid-noevents";
 
 // Handle ESM/CJS interop - ESM may have nested default exports
