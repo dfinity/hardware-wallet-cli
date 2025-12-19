@@ -16,8 +16,8 @@
     "prepack": "npm run build",
     "clean": "npm run build",
     "refresh": "rm -rf ./node_modules ./package-lock.json && npm install",
-    "execute": "npm run build && node --no-deprecation ./dist/index.mjs",
-    "run": "node --no-deprecation ./dist/index.mjs",
+    "execute": "npm run build && node ./dist/index.mjs",
+    "run": "node ./dist/index.mjs",
     "update:icp-sdk": "npm update @icp-sdk/canisters @icp-sdk/core @dfinity/utils",
     "build:tokens": "ts-node ./scripts/get-tokens-list.ts"
   },
@@ -44,7 +44,6 @@
     "@zondax/ledger-icp": "^3.2.6",
     "chalk": "^4.1.2",
     "commander": "^9.0.0",
-    "node-fetch": "^2.6.1",
     "node-window-polyfill": "^1.0.2"
   },
   "devDependencies": {

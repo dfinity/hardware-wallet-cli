@@ -63,13 +63,10 @@ import {
 // Add polyfill for `window` for `TransportWebHID` checks to work.
 import "node-window-polyfill/register";
 
-// @ts-ignore (no types are available)
-import fetch from "node-fetch";
-import { Secp256k1PublicKey } from "./ledger/secp256k1";
-
-(global as any).fetch = fetch;
-// Add polyfill for `window.fetch` for agent-js to work.
+// Set window.fetch to Node's native fetch (required by agent library)
 (window as any).fetch = fetch;
+
+import { Secp256k1PublicKey } from "./ledger/secp256k1";
 
 const program = new Command();
 const log = console.log;

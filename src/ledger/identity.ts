@@ -25,11 +25,10 @@ const TransportWebHID = (TransportWebHIDModule as any).default?.default || (Tran
 const TransportNodeHidNoEvents = (TransportNodeHidNoEventsModule as any).default?.default || (TransportNodeHidNoEventsModule as any).default || TransportNodeHidNoEventsModule;
 type Transport = typeof TransportWebHID;
 
-// Add polyfill for `window.fetch` for agent-js to work.
-// @ts-ignore (no types are available)
-import fetch from "node-fetch";
 import { isNullish, nonNullish } from "@dfinity/utils";
-global.fetch = fetch;
+
+// Set global.fetch for agent-js compatibility (Node 18+ has native fetch)
+(global as any).fetch = fetch;
 
 /**
  * Convert the HttpAgentRequest body into cbor which can be signed by the Ledger Hardware Wallet.
