@@ -17,8 +17,8 @@ const script = await esbuild.build({
   write: false,
   // Only native modules must be external (can't be bundled)
   external: ["node-hid"],
+  // ESM doesn't have require(), so we create it for any deps that need it
   banner: {
-    // ESM doesn't have require(), so we create it for any deps that need it
     js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
   },
 });
