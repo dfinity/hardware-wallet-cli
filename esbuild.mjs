@@ -15,14 +15,8 @@ const script = await esbuild.build({
   platform: "node",
   format: "esm",
   write: false,
-  // Keep packages with native deps or ESM issues external
-  external: [
-    "@icp-sdk/*",
-    "@dfinity/*",
-    "@ledgerhq/*",
-    "@zondax/*",
-    "node-hid",
-  ],
+  // Only native modules must be external (can't be bundled)
+  external: ["node-hid"],
   banner: {
     // ESM doesn't have require(), so we create it for any deps that need it
     js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
