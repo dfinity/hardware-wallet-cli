@@ -10,28 +10,55 @@ if (!existsSync(dist)) {
   mkdirSync(dist);
 }
 
+// Packages to keep external to avoid bundling issues
+const externalPatterns = [
+  /^@icp-sdk/,
+  /^@dfinity/,
+  /^@ledgerhq/,
+  /^@zondax/,
+  /^node-hid/,
+  /^rxjs/,
+];
+
+// Plugin to mark certain packages as external before resolution
+const externalPlugin = {
+  name: "external-packages",
+  setup(build) {
+    // Intercept imports before resolution
+    build.onResolve({ filter: /.*/ }, (args) => {
+      for (const pattern of externalPatterns) {
+        if (pattern.test(args.path)) {
+          return { path: args.path, external: true };
+        }
+      }
+      return null; // Let other plugins handle it
+    });
+  },
+};
+
 const script = await esbuild.build({
   entryPoints: ["src/index.ts"],
   bundle: true,
-  minify: true,
+  minify: false,
   platform: "node",
+  format: "esm",
   write: false,
+  banner: {
+    // ESM doesn't have __dirname or require, so we create them
+    js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
+  },
   plugins: [
+    externalPlugin,
     NodeResolve.NodeResolvePlugin({
       extensions: [".ts", ".js"],
       onResolved: (resolved) => {
-        // We want all node modules in the same bundle.
-        // Except for the node-hid module which needs to be outside to work properly.
-        // There is another library with the name "hw-transport-node-hid-noevents"
-        // That's why need such a fine-grained check.
+        // node-hid must be external for native module to work
         if (
           resolved.includes("node_modules") &&
           resolved.includes("node-hid") &&
           !resolved.includes("noevents")
         ) {
-          return {
-            external: true,
-          };
+          return { external: true };
         }
         return resolved;
       },
@@ -39,4 +66,4 @@ const script = await esbuild.build({
   ],
 });
 
-writeFileSync("dist/index.js", `${script.outputFiles[0].text}`);
+writeFileSync("dist/index.mjs", `${script.outputFiles[0].text}`);

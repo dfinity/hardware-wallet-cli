@@ -1,9 +1,9 @@
 import { InvalidArgumentError } from "commander";
-import { AccountIdentifier } from "@dfinity/ledger-icp";
-import { Principal } from "@dfinity/principal";
+import { AccountIdentifier } from "@icp-sdk/canisters/ledger/icp";
+import { Principal } from "@icp-sdk/core/principal";
 import { hexToSnsNeuronId } from "./utils";
-import { SnsNeuronId } from "@dfinity/sns";
-import { decodeIcrcAccount, IcrcAccount } from "@dfinity/ledger-icrc";
+import { SnsGovernanceDid } from "@icp-sdk/canisters/sns";
+import { decodeIcrcAccount, IcrcAccount } from "@icp-sdk/canisters/ledger/icrc";
 import { TokenAmountV2, ICPToken } from "@dfinity/utils";
 
 export function tryParseInt(value: string): number {
@@ -55,7 +55,7 @@ export function tryParsePrincipal(value: string): Principal {
   }
 }
 
-export function tryParseSnsNeuronId(value: string): SnsNeuronId {
+export function tryParseSnsNeuronId(value: string): SnsGovernanceDid.NeuronId {
   try {
     return hexToSnsNeuronId(value);
   } catch (err: unknown) {

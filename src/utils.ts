@@ -1,13 +1,13 @@
 import { LedgerIdentity } from "./ledger/identity";
 import { arrayOfNumberToUint8Array, smallerVersion } from "@dfinity/utils";
-import type { NeuronInfo } from "@dfinity/nns";
+import type { NeuronInfo } from "@icp-sdk/canisters/nns";
 import {
   DEFAULT_TRANSACTION_FEE_E8S,
   FULL_CANDID_PARSER_VERSION,
 } from "./constants";
 import { InvalidArgumentError, program } from "commander";
-import { Agent, HttpAgent, Identity } from "@dfinity/agent";
-import { SnsNeuronId } from "@dfinity/sns";
+import { Agent, HttpAgent, Identity } from "@icp-sdk/core/agent";
+import { SnsGovernanceDid } from "@icp-sdk/canisters/sns";
 
 /**
  * Raises an error if the current version is smaller than the minVersion, does nothing if equal or bigger.
@@ -144,7 +144,7 @@ export const hexStringToBytes = (hexString: string): number[] => {
   return bytes;
 };
 
-export const hexToSnsNeuronId = (hex: string): SnsNeuronId => ({
+export const hexToSnsNeuronId = (hex: string): SnsGovernanceDid.NeuronId => ({
   id: arrayOfNumberToUint8Array(hexStringToBytes(hex)),
 });
 

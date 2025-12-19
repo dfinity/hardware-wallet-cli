@@ -1,19 +1,30 @@
 import {
-  CallRequest,
   Cbor,
+  CallRequest,
   HttpAgentRequest,
   PublicKey,
   ReadRequest,
   Signature,
   SignIdentity,
-} from "@dfinity/agent";
-import { Principal } from "@dfinity/principal";
-import LedgerApp, { ResponseSign, TokenInfo } from "@zondax/ledger-icp";
+} from "@icp-sdk/core/agent";
+import { Principal } from "@icp-sdk/core/principal";
+// @ts-ignore
+import * as LedgerAppModule from "@zondax/ledger-icp";
+// Handle ESM/CJS interop - ESM may have nested default exports
+const LedgerApp = (LedgerAppModule as any).default?.default || (LedgerAppModule as any).default || LedgerAppModule;
+type ResponseSign = LedgerAppModule.ResponseSign;
+type TokenInfo = LedgerAppModule.TokenInfo;
 import { Secp256k1PublicKey } from "./secp256k1";
 
 // @ts-ignore (no types are available)
-import TransportWebHID, { Transport } from "@ledgerhq/hw-transport-webhid";
-import TransportNodeHidNoEvents from "@ledgerhq/hw-transport-node-hid-noevents";
+import * as TransportWebHIDModule from "@ledgerhq/hw-transport-webhid";
+// @ts-ignore (no types are available)
+import * as TransportNodeHidNoEventsModule from "@ledgerhq/hw-transport-node-hid-noevents";
+
+// Handle ESM/CJS interop - ESM may have nested default exports
+const TransportWebHID = (TransportWebHIDModule as any).default?.default || (TransportWebHIDModule as any).default || TransportWebHIDModule;
+const TransportNodeHidNoEvents = (TransportNodeHidNoEventsModule as any).default?.default || (TransportNodeHidNoEventsModule as any).default || TransportNodeHidNoEventsModule;
+type Transport = typeof TransportWebHID;
 
 // Add polyfill for `window.fetch` for agent-js to work.
 // @ts-ignore (no types are available)
@@ -27,7 +38,7 @@ global.fetch = fetch;
  */
 function _prepareCborForLedger(
   request: ReadRequest | CallRequest
-): ArrayBuffer {
+): Uint8Array {
   return Cbor.encode({ content: request });
 }
 
@@ -69,15 +80,27 @@ export class LedgerIdentity extends SignIdentity {
    */
   private static async _connect(): Promise<[LedgerApp, Transport]> {
     async function getTransport() {
-      if (await TransportWebHID.isSupported()) {
+      // In Node.js CLI, always use the Node HID transport
+      // WebHID is only for browsers and may not be properly available
+      const nodeHidSupported = typeof TransportNodeHidNoEvents.isSupported === 'function' 
+        ? await TransportNodeHidNoEvents.isSupported() 
+        : true; // Assume supported if we can't check
+      
+      if (nodeHidSupported && TransportNodeHidNoEvents.list) {
+        // CLI environment - use open() directly to avoid bug in create()
+        const devices = await TransportNodeHidNoEvents.list();
+        if (devices.length === 0) {
+          const err = new Error("No Ledger device found") as Error & { id: string };
+          err.id = "NoDeviceFound";
+          throw err;
+        }
+        return TransportNodeHidNoEvents.open(devices[0]);
+      } else if (typeof TransportWebHID.isSupported === 'function' && await TransportWebHID.isSupported()) {
         // We're in a web browser.
         return TransportWebHID.create();
-      } else if (await TransportNodeHidNoEvents.isSupported()) {
-        // Maybe we're in a CLI.
-        return TransportNodeHidNoEvents.create();
       } else {
         // Unknown environment.
-        throw Error();
+        throw Error("No supported transport found");
       }
     }
 
@@ -86,19 +109,16 @@ export class LedgerIdentity extends SignIdentity {
       const app = new LedgerApp(transport);
       return [app, transport];
     } catch (err) {
-      // @ts-ignore
-      if (err.id && err.id == "NoDeviceFound") {
-        throw "No Ledger device found. Is the wallet connected and unlocked?";
-      } else if (
-        // @ts-ignore
-        err.message &&
-        // @ts-ignore
-        err.message.includes("cannot open device with path")
-      ) {
-        throw "Cannot connect to Ledger device. Please close all other wallet applications (e.g. Ledger Live) and try again.";
+      const error = err as Error & { id?: string };
+      if (error.id === "NoDeviceFound") {
+        throw new Error("No Ledger device found. Is the wallet connected and unlocked?");
+      } else if (error.message?.includes("cannot open device with path")) {
+        throw new Error("Cannot connect to Ledger device. Please close all other wallet applications (e.g. Ledger Live) and try again.");
+      } else if (error.message?.includes("Cannot access") || error.name === "ReferenceError") {
+        // This can happen due to a bug in @ledgerhq packages with certain Node.js versions
+        throw new Error("No Ledger device found. Please connect your Ledger device and open the Internet Computer app.");
       } else {
-        // Unsupported browser. Data on browser compatibility is taken from https://caniuse.com/webhid
-        throw `Cannot connect to Ledger Wallet. Either you have other wallet applications open (e.g. Ledger Live), or your browser doesn't support WebHID, which is necessary to communicate with your Ledger hardware wallet.\n\nSupported browsers:\n* Chrome (Desktop) v89+\n* Edge v89+\n* Opera v76+\n\nError: ${err}`;
+        throw new Error(`Cannot connect to Ledger Wallet. Please make sure:\n- Your Ledger device is connected and unlocked\n- The Internet Computer app is open on your Ledger\n- No other wallet applications (e.g. Ledger Live) are running\n\nError: ${error.message || err}`);
       }
     }
   }
@@ -122,7 +142,7 @@ export class LedgerIdentity extends SignIdentity {
     const principal = (resp as unknown as { principalText: string })
       .principalText;
     const publicKey = Secp256k1PublicKey.fromRaw(
-      new Uint8Array(resp.publicKey)
+      new Uint8Array(resp.publicKey).buffer
     );
 
     if (
@@ -190,7 +210,7 @@ export class LedgerIdentity extends SignIdentity {
     return this._publicKey;
   }
 
-  public async sign(blob: ArrayBuffer): Promise<Signature> {
+  public async sign(blob: Uint8Array): Promise<Signature> {
     return await this._executeWithApp(async (app: LedgerApp) => {
       const resp: ResponseSign = await app.sign(
         this.derivePath,
@@ -216,7 +236,7 @@ export class LedgerIdentity extends SignIdentity {
         );
       }
 
-      return bufferToArrayBuffer(signatureRS) as Signature;
+      return new Uint8Array(signatureRS) as Signature;
     });
   }
 
@@ -275,5 +295,5 @@ function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
   return buffer.buffer.slice(
     buffer.byteOffset,
     buffer.byteOffset + buffer.byteLength
-  );
+  ) as ArrayBuffer;
 }
