@@ -601,12 +601,17 @@ async function enableAutoStake(neuronId: bigint, autoStake: boolean) {
  */
 async function refreshVotingPower(neuronId: bigint | "all") {
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  // Use Ledger identity for listing neurons
+  const governanceForList = GovernanceCanister.create({
     agent: await getCurrentAgent(identity),
+  });
+  // Use anonymous identity for refresh - anyone can call this operation
+  const governanceForRefresh = GovernanceCanister.create({
+    agent: await getCurrentAgent(new AnonymousIdentity()),
   });
 
   if (neuronId === "all") {
-    const neurons = await governance.listNeurons({ certified: true });
+    const neurons = await governanceForList.listNeurons({ certified: true });
     // We don't refresh neurons with no ICP, they'll be garbage collected by the governance canister.
     const validNeurons = neurons.filter(hasValidStake);
 
@@ -616,15 +621,15 @@ async function refreshVotingPower(neuronId: bigint | "all") {
     }
 
     for (const neuron of validNeurons) {
-      const refreshedNeuronId = await governance.claimOrRefreshNeuron({
+      const refreshedNeuronId = await governanceForRefresh.claimOrRefreshNeuron({
         neuronId: neuron.neuronId,
-        by: undefined,
+        by: { NeuronIdOrSubaccount: {} },
       });
       log(`Refreshed voting power of neuron ${refreshedNeuronId}`);
     }
     ok(`Successfully refreshed voting power for ${validNeurons.length} neuron(s).`);
   } else {
-    const refreshedNeuronId = await governance.claimOrRefreshNeuron({ neuronId, by: undefined });
+    const refreshedNeuronId = await governanceForRefresh.claimOrRefreshNeuron({ neuronId, by: { NeuronIdOrSubaccount: {} } });
     ok(`Successfully refreshed voting power of neuron ${refreshedNeuronId}`);
   }
 }
