@@ -278,12 +278,12 @@ async function snsStakeMaturity({
 }
 
 /**
- * Refreshes the voting power of an SNS neuron.
+ * Refreshes the stake of an SNS neuron.
  *
  * @param neuronId The ID of the neuron to refresh, or "all" to refresh all neurons owned by the Ledger identity.
  * @param canisterId The SNS governance canister ID.
  */
-async function snsRefreshVotingPower({
+async function snsRefreshStake({
   neuronId,
   canisterId,
 }: { neuronId: SnsNeuronId | "all" } & SnsCallParams) {
@@ -312,13 +312,13 @@ async function snsRefreshVotingPower({
         continue;
       }
       await snsGovernance.refreshNeuron(nId);
-      log(`Refreshed voting power of neuron ${subaccountToHexString(Uint8Array.from(nId.id))}`);
+      log(`Refreshed stake of neuron ${subaccountToHexString(Uint8Array.from(nId.id))}`);
       refreshedCount++;
     }
-    ok(`Successfully refreshed voting power for ${refreshedCount} neuron(s).`);
+    ok(`Successfully refreshed stake of ${refreshedCount} neuron(s).`);
   } else {
     await snsGovernance.refreshNeuron(neuronId);
-    ok(`Successfully refreshed voting power of neuron ${subaccountToHexString(Uint8Array.from(neuronId.id))}`);
+    ok(`Successfully refreshed stake of neuron ${subaccountToHexString(Uint8Array.from(neuronId.id))}`);
   }
 }
 
@@ -641,10 +641,10 @@ async function enableAutoStake(neuronId: bigint, autoStake: boolean) {
 }
 
 /**
- * Refreshes the voting power of a neuron.
+ * Refreshes the stake of a neuron.
  * @param neuronId The ID of the neuron to refresh, or "all" to refresh all neurons.
  */
-async function refreshVotingPower(neuronId: bigint | "all") {
+async function refreshStake(neuronId: bigint | "all") {
   const identity = await getIdentity();
   // Use Ledger identity for listing neurons
   const governanceForList = GovernanceCanister.create({
@@ -668,12 +668,12 @@ async function refreshVotingPower(neuronId: bigint | "all") {
         neuronId: neuron.neuronId,
         by: { NeuronIdOrSubaccount: {} },
       });
-      log(`Refreshed voting power of neuron ${refreshedNeuronId}`);
+      log(`Refreshed stake of neuron ${refreshedNeuronId}`);
     }
-    ok(`Successfully refreshed voting power for ${neurons.length} neuron(s).`);
+    ok(`Successfully refreshed stake for ${neurons.length} neuron(s).`);
   } else {
     const refreshedNeuronId = await governanceForRefresh.claimOrRefreshNeuron({ neuronId, by: { NeuronIdOrSubaccount: {} } });
-    ok(`Successfully refreshed voting power of neuron ${refreshedNeuronId}`);
+    ok(`Successfully refreshed stake of neuron ${refreshedNeuronId}`);
   }
 }
 
@@ -1136,9 +1136,9 @@ async function main() {
         )
     )
     .addCommand(
-      new Command("refresh-voting-power")
+      new Command("refresh")
         .description(
-          "Refresh the voting power of an SNS neuron."
+          "Refresh the stake of an SNS neuron."
         )
         .requiredOption(
           "--canister-id <canister-id>",
@@ -1165,7 +1165,7 @@ async function main() {
             process.exit(1);
           }
           run(() =>
-            snsRefreshVotingPower({
+            snsRefreshStake({
               neuronId: args.all ? "all" : args.neuronId,
               canisterId: args.canisterId,
             })
@@ -1409,8 +1409,8 @@ async function main() {
         .action((args) => run(() => claimNeurons()))
     )
     .addCommand(
-      new Command("refresh-voting-power")
-        .description("Refresh the voting power of a neuron.")
+      new Command("refresh")
+        .description("Refresh the stake of a neuron.")
         .option("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
         .option("--all", "Refresh all neurons")
         .action((args) => {
@@ -1426,7 +1426,7 @@ async function main() {
             );
             process.exit(1);
           }
-          run(() => refreshVotingPower(args.all ? "all" : args.neuronId));
+          run(() => refreshStake(args.all ? "all" : args.neuronId));
         })
     );
 
