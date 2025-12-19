@@ -278,6 +278,51 @@ async function snsStakeMaturity({
 }
 
 /**
+ * Refreshes the voting power of an SNS neuron.
+ *
+ * @param neuronId The ID of the neuron to refresh, or "all" to refresh all neurons owned by the Ledger identity.
+ * @param canisterId The SNS governance canister ID.
+ */
+async function snsRefreshVotingPower({
+  neuronId,
+  canisterId,
+}: { neuronId: SnsNeuronId | "all" } & SnsCallParams) {
+  const identity = await getIdentity();
+  const snsGovernance = SnsGovernanceCanister.create({
+    agent: await getCurrentAgent(new AnonymousIdentity()),
+    canisterId,
+  });
+
+  if (neuronId === "all") {
+    const neurons = await snsGovernance.listNeurons({
+      certified: true,
+      principal: identity.getPrincipal(),
+    });
+
+    if (neurons.length === 0) {
+      ok("No neurons found to refresh.");
+      return;
+    }
+
+    let refreshedCount = 0;
+    for (const neuron of neurons) {
+      const nId = fromNullable(neuron.id);
+      if (nId === undefined) {
+        log("Skipping neuron with undefined ID");
+        continue;
+      }
+      await snsGovernance.refreshNeuron(nId);
+      log(`Refreshed voting power of neuron ${subaccountToHexString(Uint8Array.from(nId.id))}`);
+      refreshedCount++;
+    }
+    ok(`Successfully refreshed voting power for ${refreshedCount} neuron(s).`);
+  } else {
+    await snsGovernance.refreshNeuron(neuronId);
+    ok(`Successfully refreshed voting power of neuron ${subaccountToHexString(Uint8Array.from(neuronId.id))}`);
+  }
+}
+
+/**
  * ICRC Functionality
  */
 
@@ -1089,7 +1134,44 @@ async function main() {
             })
           )
         )
-    );
+    )
+    .addCommand(
+      new Command("refresh-voting-power")
+        .description(
+          "Refresh the voting power of an SNS neuron."
+        )
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .option(
+          "--neuron-id <neuron-id>",
+          "Neuron ID",
+          tryParseSnsNeuronId
+        )
+        .option("--all", "Refresh all neurons owned by the Ledger identity")
+        .action((args) => {
+          if (args.all && args.neuronId) {
+            console.error(
+              "Error: Cannot use both --neuron-id and --all.\nUse --neuron-id <ID> to refresh a specific neuron, or --all to refresh all neurons."
+            );
+            process.exit(1);
+          }
+          if (!args.all && !args.neuronId) {
+            console.error(
+              "Error: Missing target neuron.\nUse --neuron-id <ID> to refresh a specific neuron, or --all to refresh all neurons."
+            );
+            process.exit(1);
+          }
+          run(() =>
+            snsRefreshVotingPower({
+              neuronId: args.all ? "all" : args.neuronId,
+              canisterId: args.canisterId,
+            })
+          );
+        })
+      );
 
   const sns = new Command("sns")
     .description("Commands for managing SNS.")
