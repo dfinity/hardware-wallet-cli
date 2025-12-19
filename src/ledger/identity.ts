@@ -83,8 +83,17 @@ export class LedgerIdentity extends SignIdentity {
         // We're in a web browser.
         return TransportWebHID.create();
       } else if (await TransportNodeHidNoEvents.isSupported()) {
-        // Maybe we're in a CLI.
-        return TransportNodeHidNoEvents.create();
+        // CLI environment.
+        // Use list() + open() instead of create() to work around a bug in the
+        // @ledgerhq library that throws "Cannot access 'X' before initialization"
+        // when no device is connected.
+        const devices = await TransportNodeHidNoEvents.list();
+        if (devices.length === 0) {
+          const err = new Error("No Ledger device found") as Error & { id: string };
+          err.id = "NoDeviceFound";
+          throw err;
+        }
+        return TransportNodeHidNoEvents.open(devices[0]);
       } else {
         // Unknown environment.
         throw Error();
