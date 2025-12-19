@@ -612,22 +612,20 @@ async function refreshVotingPower(neuronId: bigint | "all") {
 
   if (neuronId === "all") {
     const neurons = await governanceForList.listNeurons({ certified: true });
-    // We don't refresh neurons with no ICP, they'll be garbage collected by the governance canister.
-    const validNeurons = neurons.filter(hasValidStake);
 
-    if (validNeurons.length === 0) {
+    if (neurons.length === 0) {
       ok("No neurons found to refresh.");
       return;
     }
 
-    for (const neuron of validNeurons) {
+    for (const neuron of neurons) {
       const refreshedNeuronId = await governanceForRefresh.claimOrRefreshNeuron({
         neuronId: neuron.neuronId,
         by: { NeuronIdOrSubaccount: {} },
       });
       log(`Refreshed voting power of neuron ${refreshedNeuronId}`);
     }
-    ok(`Successfully refreshed voting power for ${validNeurons.length} neuron(s).`);
+    ok(`Successfully refreshed voting power for ${neurons.length} neuron(s).`);
   } else {
     const refreshedNeuronId = await governanceForRefresh.claimOrRefreshNeuron({ neuronId, by: { NeuronIdOrSubaccount: {} } });
     ok(`Successfully refreshed voting power of neuron ${refreshedNeuronId}`);
