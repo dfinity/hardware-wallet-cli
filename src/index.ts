@@ -34,6 +34,7 @@ import {
   subaccountToHexString,
   nowInBigIntNanoSeconds,
   isCurrentVersionSmallerThanFullCandidParser,
+  jsonStringifyWithBigInt,
 } from "./utils";
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
 import { AnonymousIdentity, Identity } from "@dfinity/agent";
@@ -794,6 +795,18 @@ async function claimNeurons() {
   ok(`Successfully claimed the following neurons: ${claimedNeuronIds}`);
 }
 
+async function getNeuron(neuronId: bigint) {
+  const identity = await getIdentity();
+  const governance = GovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+  });
+  const neuron = await governance.getNeuron({
+    certified: true,
+    neuronId: neuronId,
+  });
+  ok(`Neuron: ${jsonStringifyWithBigInt(neuron)}`);
+}
+
 /**
  * Runs a function with a try/catch block.
  */
@@ -1288,6 +1301,12 @@ async function main() {
       new Command("claim")
         .description("Claim the caller's GTC neurons.")
         .action((args) => run(() => claimNeurons()))
+    )
+    .addCommand(
+        new Command("info")
+            .description("Show full information about a neuron.")
+            .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+            .action((args) => run(() => getNeuron(args.neuronId)))
     );
 
   const icp = new Command("icp")
