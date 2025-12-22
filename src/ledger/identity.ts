@@ -11,7 +11,10 @@ import { Principal } from "@icp-sdk/core/principal";
 // @ts-ignore
 import * as LedgerAppModule from "@zondax/ledger-icp";
 // Handle ESM/CJS interop - ESM may have nested default exports
-const LedgerApp = (LedgerAppModule as any).default?.default || (LedgerAppModule as any).default || LedgerAppModule;
+const LedgerApp =
+  (LedgerAppModule as any).default?.default ||
+  (LedgerAppModule as any).default ||
+  LedgerAppModule;
 type ResponseSign = LedgerAppModule.ResponseSign;
 type TokenInfo = LedgerAppModule.TokenInfo;
 import { Secp256k1PublicKey } from "./secp256k1";
@@ -21,8 +24,14 @@ import * as TransportWebHIDModule from "@ledgerhq/hw-transport-webhid";
 import * as TransportNodeHidNoEventsModule from "@ledgerhq/hw-transport-node-hid-noevents";
 
 // Handle ESM/CJS interop - ESM may have nested default exports
-const TransportWebHID = (TransportWebHIDModule as any).default?.default || (TransportWebHIDModule as any).default || TransportWebHIDModule;
-const TransportNodeHidNoEvents = (TransportNodeHidNoEventsModule as any).default?.default || (TransportNodeHidNoEventsModule as any).default || TransportNodeHidNoEventsModule;
+const TransportWebHID =
+  (TransportWebHIDModule as any).default?.default ||
+  (TransportWebHIDModule as any).default ||
+  TransportWebHIDModule;
+const TransportNodeHidNoEvents =
+  (TransportNodeHidNoEventsModule as any).default?.default ||
+  (TransportNodeHidNoEventsModule as any).default ||
+  TransportNodeHidNoEventsModule;
 type Transport = typeof TransportWebHID;
 
 import { isNullish, nonNullish } from "@dfinity/utils";
@@ -34,9 +43,7 @@ import { isNullish, nonNullish } from "@dfinity/utils";
  * Convert the HttpAgentRequest body into cbor which can be signed by the Ledger Hardware Wallet.
  * @param request - body of the HttpAgentRequest
  */
-function _prepareCborForLedger(
-  request: ReadRequest | CallRequest
-): Uint8Array {
+function _prepareCborForLedger(request: ReadRequest | CallRequest): Uint8Array {
   return Cbor.encode({ content: request });
 }
 
@@ -87,7 +94,9 @@ export class LedgerIdentity extends SignIdentity {
         // @ledgerhq library that throws "Cannot access 'X' before initialization".
         const devices = await TransportNodeHidNoEvents.list();
         if (devices.length === 0) {
-          const err = new Error("No Ledger device found") as Error & { id: string };
+          const err = new Error("No Ledger device found") as Error & {
+            id: string;
+          };
           err.id = "NoDeviceFound";
           throw err;
         }

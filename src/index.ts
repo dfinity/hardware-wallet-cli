@@ -37,7 +37,10 @@ import {
 } from "./utils";
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
 import { AnonymousIdentity, Identity } from "@icp-sdk/core/agent";
-import { SnsGovernanceCanister, SnsGovernanceDid } from "@icp-sdk/canisters/sns";
+import {
+  SnsGovernanceCanister,
+  SnsGovernanceDid,
+} from "@icp-sdk/canisters/sns";
 
 type SnsNeuronId = SnsGovernanceDid.NeuronId;
 import {
@@ -442,7 +445,8 @@ async function stakeNeuron(stake: TokenAmountV2) {
       err(`Cannot stake less than ${error.minimumAmount} e8s`);
     } else if (error instanceof InsufficientFundsError) {
       err(
-        `Your account has insufficient funds (${(error as InsufficientFundsError).balance
+        `Your account has insufficient funds (${
+          (error as InsufficientFundsError).balance
         } e8s)`
       );
     } else {
@@ -817,8 +821,8 @@ function err(error: any) {
     error instanceof GovernanceError
       ? error.detail.error_message
       : error instanceof Error
-        ? error.message
-        : error;
+      ? error.message
+      : error;
   log(`${chalk.bold(chalk.red("Error:"))} ${message}`);
 }
 
@@ -848,11 +852,7 @@ async function main() {
           "ICRC ledger Canister ID",
           tryParsePrincipal
         )
-        .requiredOption(
-          "--to <account>",
-          "ICRC Account",
-          tryParseIcrcAccount
-        )
+        .requiredOption("--to <account>", "ICRC Account", tryParseIcrcAccount)
         .requiredOption(
           "--amount <amount>",
           "Amount to transfer in ledger's base unit",
