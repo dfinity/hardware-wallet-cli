@@ -802,7 +802,7 @@ async function getNeuron(neuronId: bigint) {
   });
   const neuron = await governance.getNeuron({
     certified: true,
-    neuronId: neuronId,
+    neuronId,
   });
   ok(`Neuron: ${jsonStringifyWithBigInt(neuron)}`);
 }
