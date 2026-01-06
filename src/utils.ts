@@ -150,3 +150,14 @@ export const hexToSnsNeuronId = (hex: string): SnsNeuronId => ({
 
 export const nowInBigIntNanoSeconds = (): bigint =>
   BigInt(Date.now()) * BigInt(1e6);
+
+/**
+ * JSON.stringify with bigint support.
+ * Converts bigint values to strings since JSON doesn't support bigint natively.
+ */
+export const jsonStringifyWithBigInt = (obj: unknown, indent = 2): string =>
+  JSON.stringify(
+    obj,
+    (_, value) => (typeof value === "bigint" ? value.toString() : value),
+    indent
+  );
