@@ -1,33 +1,49 @@
 import {
-  CallRequest,
   Cbor,
+  CallRequest,
   HttpAgentRequest,
   PublicKey,
   ReadRequest,
   Signature,
   SignIdentity,
-} from "@dfinity/agent";
-import { Principal } from "@dfinity/principal";
-import LedgerApp, { ResponseSign, TokenInfo } from "@zondax/ledger-icp";
+} from "@icp-sdk/core/agent";
+import { Principal } from "@icp-sdk/core/principal";
+// @ts-ignore
+import * as LedgerAppModule from "@zondax/ledger-icp";
+// Handle ESM/CJS interop - ESM may have nested default exports
+const LedgerApp =
+  (LedgerAppModule as any).default?.default ||
+  (LedgerAppModule as any).default ||
+  LedgerAppModule;
+type ResponseSign = LedgerAppModule.ResponseSign;
+type TokenInfo = LedgerAppModule.TokenInfo;
 import { Secp256k1PublicKey } from "./secp256k1";
 
 // @ts-ignore (no types are available)
-import TransportWebHID, { Transport } from "@ledgerhq/hw-transport-webhid";
-import TransportNodeHidNoEvents from "@ledgerhq/hw-transport-node-hid-noevents";
+import * as TransportWebHIDModule from "@ledgerhq/hw-transport-webhid";
+import * as TransportNodeHidNoEventsModule from "@ledgerhq/hw-transport-node-hid-noevents";
 
-// Add polyfill for `window.fetch` for agent-js to work.
-// @ts-ignore (no types are available)
-import fetch from "node-fetch";
+// Handle ESM/CJS interop - ESM may have nested default exports
+const TransportWebHID =
+  (TransportWebHIDModule as any).default?.default ||
+  (TransportWebHIDModule as any).default ||
+  TransportWebHIDModule;
+const TransportNodeHidNoEvents =
+  (TransportNodeHidNoEventsModule as any).default?.default ||
+  (TransportNodeHidNoEventsModule as any).default ||
+  TransportNodeHidNoEventsModule;
+type Transport = typeof TransportWebHID;
+
 import { isNullish, nonNullish } from "@dfinity/utils";
-global.fetch = fetch;
+
+// Set global.fetch for agent-js compatibility (Node 18+ has native fetch)
+(global as any).fetch = fetch;
 
 /**
  * Convert the HttpAgentRequest body into cbor which can be signed by the Ledger Hardware Wallet.
  * @param request - body of the HttpAgentRequest
  */
-function _prepareCborForLedger(
-  request: ReadRequest | CallRequest
-): ArrayBuffer {
+function _prepareCborForLedger(request: ReadRequest | CallRequest): Uint8Array {
   return Cbor.encode({ content: request });
 }
 
@@ -73,8 +89,18 @@ export class LedgerIdentity extends SignIdentity {
         // We're in a web browser.
         return TransportWebHID.create();
       } else if (await TransportNodeHidNoEvents.isSupported()) {
-        // Maybe we're in a CLI.
-        return TransportNodeHidNoEvents.create();
+        // CLI environment.
+        // Use list() + open() instead of create() to work around a bug in the
+        // @ledgerhq library that throws "Cannot access 'X' before initialization".
+        const devices = await TransportNodeHidNoEvents.list();
+        if (devices.length === 0) {
+          const err = new Error("No Ledger device found") as Error & {
+            id: string;
+          };
+          err.id = "NoDeviceFound";
+          throw err;
+        }
+        return TransportNodeHidNoEvents.open(devices[0]);
       } else {
         // Unknown environment.
         throw Error();
@@ -122,7 +148,7 @@ export class LedgerIdentity extends SignIdentity {
     const principal = (resp as unknown as { principalText: string })
       .principalText;
     const publicKey = Secp256k1PublicKey.fromRaw(
-      new Uint8Array(resp.publicKey)
+      new Uint8Array(resp.publicKey).buffer
     );
 
     if (
@@ -190,7 +216,7 @@ export class LedgerIdentity extends SignIdentity {
     return this._publicKey;
   }
 
-  public async sign(blob: ArrayBuffer): Promise<Signature> {
+  public async sign(blob: Uint8Array): Promise<Signature> {
     return await this._executeWithApp(async (app: LedgerApp) => {
       const resp: ResponseSign = await app.sign(
         this.derivePath,
@@ -216,7 +242,7 @@ export class LedgerIdentity extends SignIdentity {
         );
       }
 
-      return bufferToArrayBuffer(signatureRS) as Signature;
+      return new Uint8Array(signatureRS) as Signature;
     });
   }
 
@@ -275,5 +301,5 @@ function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
   return buffer.buffer.slice(
     buffer.byteOffset,
     buffer.byteOffset + buffer.byteLength
-  );
+  ) as ArrayBuffer;
 }

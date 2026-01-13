@@ -2,9 +2,10 @@
   "name": "@dfinity/hardware-wallet-cli",
   "version": "0.6.0",
   "description": "A CLI to interact with the Internet Computer App on Ledger Nano S/X devices.",
-  "main": "./dist/index.js",
+  "type": "module",
+  "main": "./dist/index.mjs",
   "files": [
-    "dist/index.js",
+    "dist/index.mjs",
     "README.md",
     "LICENSE"
   ],
@@ -15,9 +16,9 @@
     "prepack": "npm run build",
     "clean": "npm run build",
     "refresh": "rm -rf ./node_modules ./package-lock.json && npm install",
-    "execute": "ts-node ./src/index.ts",
-    "update:next": "npm update @dfinity/nns @dfinity/sns @dfinity/utils",
-    "update:agent": "npm rm @dfinity/agent @dfinity/principal && npm i @dfinity/agent @dfinity/principal",
+    "execute": "npm run build && node ./dist/index.mjs",
+    "run": "node ./dist/index.mjs",
+    "update:icp-sdk": "npm update @icp-sdk/canisters @icp-sdk/core @dfinity/utils",
     "build:tokens": "ts-node ./scripts/get-tokens-list.ts"
   },
   "engineStrict": true,
@@ -35,23 +36,17 @@
   },
   "homepage": "https://github.com/dfinity/hardware-wallet-cli#readme",
   "dependencies": {
-    "@dfinity/agent": "^2.1.2",
-    "@dfinity/ledger-icrc": "^2.6.0",
-    "@dfinity/nns": "^7.0.0",
-    "@dfinity/principal": "^2.1.2",
-    "@dfinity/sns": "^3.2.1",
-    "@dfinity/utils": "^2.5.0",
+    "@dfinity/utils": "^4.1.0",
+    "@icp-sdk/canisters": "^3.2.0",
+    "@icp-sdk/core": "^5.0.0",
     "@ledgerhq/hw-transport-node-hid-noevents": "^6.3.0",
     "@ledgerhq/hw-transport-webhid": "^6.27.1",
     "@zondax/ledger-icp": "^3.2.6",
     "chalk": "^4.1.2",
     "commander": "^9.0.0",
-    "node-fetch": "^2.6.1",
     "node-window-polyfill": "^1.0.2"
   },
   "devDependencies": {
-    "@dfinity/cketh": "^3.3.1",
-    "@esbuild-plugins/node-resolve": "^0.2.0",
     "@types/google-protobuf": "^3.15.6",
     "@types/node": "^17.0.16",
     "@types/node-hid": "^1.3.1",
@@ -60,7 +55,7 @@
     "ts-node": "^10.9.1"
   },
   "bin": {
-    "ic-hardware-wallet": "./dist/index.js"
+    "ic-hardware-wallet": "./dist/index.mjs"
   },
   "overrides": {
     "semver": "^7.5.3"

@@ -5,13 +5,13 @@
  */
 import { Command, Option } from "commander";
 import {
-  GenesisTokenCanister,
-  GovernanceCanister,
+  NnsGenesisTokenCanister,
+  NnsGovernanceCanister,
   GovernanceError,
   InsufficientAmountError,
   Vote,
   Topic,
-} from "@dfinity/nns";
+} from "@icp-sdk/canisters/nns";
 import {
   tryParseAccountIdentifier,
   tryParseBigInt,
@@ -24,7 +24,7 @@ import {
   tryParsePrincipal,
   tryParseSnsNeuronId,
 } from "./parsers";
-import { Principal } from "@dfinity/principal";
+import { Principal } from "@icp-sdk/core/principal";
 import {
   assertLedgerVersion,
   hasValidStake,
@@ -37,8 +37,13 @@ import {
   jsonStringifyWithBigInt,
 } from "./utils";
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
-import { AnonymousIdentity, Identity } from "@dfinity/agent";
-import { SnsGovernanceCanister, SnsNeuronId } from "@dfinity/sns";
+import { AnonymousIdentity, Identity } from "@icp-sdk/core/agent";
+import {
+  SnsGovernanceCanister,
+  SnsGovernanceDid,
+} from "@icp-sdk/canisters/sns";
+
+type SnsNeuronId = SnsGovernanceDid.NeuronId;
 import {
   TokenAmountV2,
   fromNullable,
@@ -51,23 +56,20 @@ import {
   IcrcAccount,
   IcrcLedgerCanister,
   toTransferArg,
-} from "@dfinity/ledger-icrc";
+} from "@icp-sdk/canisters/ledger/icrc";
 import chalk from "chalk";
 import {
   AccountIdentifier,
-  LedgerCanister,
+  IcpLedgerCanister,
   InsufficientFundsError,
-} from "@dfinity/ledger-icp";
+} from "@icp-sdk/canisters/ledger/icp";
 
 // Add polyfill for `window` for `TransportWebHID` checks to work.
 import "node-window-polyfill/register";
 
-// @ts-ignore (no types are available)
-import fetch from "node-fetch";
 import { Secp256k1PublicKey } from "./ledger/secp256k1";
 
-(global as any).fetch = fetch;
-// Add polyfill for `window.fetch` for agent-js to work.
+// Set window.fetch to Node's native fetch (required by agent library)
 (window as any).fetch = fetch;
 
 const program = new Command();
@@ -358,7 +360,7 @@ async function getBalance() {
     principal: identity.getPrincipal(),
   });
 
-  const ledger = LedgerCanister.create({
+  const ledger = IcpLedgerCanister.create({
     agent: await getCurrentAgent(new AnonymousIdentity()),
   });
 
@@ -377,7 +379,7 @@ async function getBalance() {
  */
 async function sendICP(to: AccountIdentifier, amount: TokenAmountV2) {
   const identity = await getIdentity();
-  const ledger = LedgerCanister.create({
+  const ledger = IcpLedgerCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -419,10 +421,10 @@ async function showInfo(showOnDevice?: boolean) {
  */
 async function stakeNeuron(stake: TokenAmountV2) {
   const identity = await getIdentity();
-  const ledger = LedgerCanister.create({
+  const ledger = IcpLedgerCanister.create({
     agent: await getCurrentAgent(identity),
   });
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(new AnonymousIdentity()),
     hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
@@ -444,7 +446,8 @@ async function stakeNeuron(stake: TokenAmountV2) {
       err(`Cannot stake less than ${error.minimumAmount} e8s`);
     } else if (error instanceof InsufficientFundsError) {
       err(
-        `Your account has insufficient funds (${(error as InsufficientFundsError).balance
+        `Your account has insufficient funds (${
+          (error as InsufficientFundsError).balance
         } e8s)`
       );
     } else {
@@ -461,7 +464,7 @@ async function increaseDissolveDelay(
   seconds: number
 ) {
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -488,7 +491,7 @@ async function setDissolveDelay(
 ) {
   const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -508,7 +511,7 @@ async function setDissolveDelay(
 
 async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
     hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
@@ -525,7 +528,7 @@ async function disburseNeuron(neuronId: bigint, to?: string, amount?: bigint) {
 async function splitNeuron(neuronId: bigint, amount: bigint) {
   const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -547,7 +550,7 @@ async function spawnNeuron(
   if (percentage !== undefined) {
     await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
   }
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
     // `hardwareWallet: true` uses Protobuf and doesn't support percentage
     hardwareWallet:
@@ -569,7 +572,7 @@ async function spawnNeuron(
 async function stakeMaturity(neuronId: bigint, percentage?: number) {
   const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -584,7 +587,7 @@ async function stakeMaturity(neuronId: bigint, percentage?: number) {
 async function enableAutoStake(neuronId: bigint, autoStake: boolean) {
   const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -598,7 +601,7 @@ async function enableAutoStake(neuronId: bigint, autoStake: boolean) {
 
 async function startDissolving(neuronId: bigint) {
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -609,7 +612,7 @@ async function startDissolving(neuronId: bigint) {
 
 async function stopDissolving(neuronId: bigint) {
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -623,7 +626,7 @@ async function joinCommunityFund(neuronId: bigint) {
   // Even though joining is supported for earler version
   // we don't want a user to be able to join but not leave.
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
     hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
@@ -636,7 +639,7 @@ async function joinCommunityFund(neuronId: bigint) {
 async function leaveCommunityFund(neuronId: bigint) {
   const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
     hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
@@ -648,7 +651,7 @@ async function leaveCommunityFund(neuronId: bigint) {
 
 async function addHotkey(neuronId: bigint, principal: Principal) {
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
     hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
@@ -663,7 +666,7 @@ async function addHotkey(neuronId: bigint, principal: Principal) {
 
 async function removeHotkey(neuronId: bigint, principal: Principal) {
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
     hardwareWallet: await isCurrentVersionSmallerThanFullCandidParser(identity),
   });
@@ -678,7 +681,7 @@ async function removeHotkey(neuronId: bigint, principal: Principal) {
 
 async function listNeurons(showZeroStake: boolean = false) {
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
     hardwareWallet: await isCurrentVersionSmallerThan({
       identity,
@@ -705,7 +708,7 @@ async function listNeurons(showZeroStake: boolean = false) {
 async function mergeNeurons(sourceNeuronId: bigint, targetNeuronId: bigint) {
   const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -724,7 +727,7 @@ async function registerVote(neuronId: bigint, proposalId: bigint, vote: Vote) {
     );
   }
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -750,7 +753,7 @@ async function setFollowees(
     );
   }
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -766,7 +769,7 @@ async function setFollowees(
 async function setNodeProviderAccount(account: AccountIdentifier) {
   const identity = await getIdentity();
   await assertLedgerVersion({ identity, minVersion: CANDID_PARSER_VERSION });
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -784,7 +787,7 @@ async function claimNeurons() {
   const publicKey = identity.getPublicKey() as Secp256k1PublicKey;
   const hexPubKey = publicKey.toHex();
 
-  const governance = await GenesisTokenCanister.create({
+  const governance = NnsGenesisTokenCanister.create({
     agent: await getCurrentAgent(identity),
   });
 
@@ -831,8 +834,8 @@ function err(error: any) {
     error instanceof GovernanceError
       ? error.detail.error_message
       : error instanceof Error
-        ? error.message
-        : error;
+      ? error.message
+      : error;
   log(`${chalk.bold(chalk.red("Error:"))} ${message}`);
 }
 
@@ -862,11 +865,7 @@ async function main() {
           "ICRC ledger Canister ID",
           tryParsePrincipal
         )
-        .requiredOption(
-          "--to <account>",
-          "ICRC Account",
-          tryParseIcrcAccount
-        )
+        .requiredOption("--to <account>", "ICRC Account", tryParseIcrcAccount)
         .requiredOption(
           "--amount <amount>",
           "Amount to transfer in ledger's base unit",
