@@ -1,7 +1,6 @@
-# Run CLI
+# Run CLI (builds first)
 run *commands:
-    npx ts-node ./src/index.ts {{commands}}
+    npm run build --silent && node ./dist/index.mjs {{commands}}
 
 # Alias for run
 alias r := run
-

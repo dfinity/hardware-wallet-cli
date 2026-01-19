@@ -1,8 +1,6 @@
-// SOURCE: https://github.com/peterpeterparker/create-ic/blob/main/esbuild.mjs
 import esbuild from "esbuild";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
-import NodeResolve from "@esbuild-plugins/node-resolve";
 
 const dist = join(process.cwd(), "dist");
 
@@ -15,28 +13,14 @@ const script = await esbuild.build({
   bundle: true,
   minify: true,
   platform: "node",
+  format: "esm",
   write: false,
-  plugins: [
-    NodeResolve.NodeResolvePlugin({
-      extensions: [".ts", ".js"],
-      onResolved: (resolved) => {
-        // We want all node modules in the same bundle.
-        // Except for the node-hid module which needs to be outside to work properly.
-        // There is another library with the name "hw-transport-node-hid-noevents"
-        // That's why need such a fine-grained check.
-        if (
-          resolved.includes("node_modules") &&
-          resolved.includes("node-hid") &&
-          !resolved.includes("noevents")
-        ) {
-          return {
-            external: true,
-          };
-        }
-        return resolved;
-      },
-    }),
-  ],
+  // Only native modules must be external (can't be bundled)
+  external: ["node-hid"],
+  // ESM doesn't have require(), so we create it for any deps that need it
+  banner: {
+    js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
+  },
 });
 
-writeFileSync("dist/index.js", `${script.outputFiles[0].text}`);
+writeFileSync("dist/index.mjs", script.outputFiles[0].text);
