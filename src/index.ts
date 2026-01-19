@@ -651,11 +651,11 @@ async function enableAutoStake(neuronId: bigint, autoStake: boolean) {
 async function refreshStake(neuronId: bigint | "all") {
   const identity = await getIdentity();
   // Use Ledger identity for listing neurons
-  const governanceForList = GovernanceCanister.create({
+  const governanceForList = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
   // Use anonymous identity for refresh - anyone can call this operation
-  const governanceForRefresh = GovernanceCanister.create({
+  const governanceForRefresh = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(new AnonymousIdentity()),
   });
 
@@ -882,7 +882,7 @@ async function claimNeurons() {
 
 async function getNeuron(neuronId: bigint) {
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
   const neuron = await governance.getNeuron({
