@@ -17,6 +17,7 @@ import {
   tryParseBigInt,
   tryParseBool,
   tryParseE8s,
+  tryParseHexString,
   tryParseIcrcAccount,
   tryParseInt,
   tryParseListBigint,
@@ -68,6 +69,7 @@ import {
 import "node-window-polyfill/register";
 
 import { Secp256k1PublicKey } from "./ledger/secp256k1";
+import { callConsentMessage, formatConsentResponse } from "./icrc21";
 
 // Set window.fetch to Node's native fetch (required by agent library)
 (window as any).fetch = fetch;
@@ -1345,6 +1347,56 @@ async function main() {
         )
         .action((args) => run(() => setNodeProviderAccount(args.account)))
     );
+
+  const bls = new Command("bls")
+    .description("Generate a BLS signature using the Ledger device")
+    .requiredOption("--consent-request <value>", "Consent request string")
+    .requiredOption("--canister-call <value>", "Canister call string")
+    .requiredOption("--certificate <value>", "Certificate string")
+    .action((args) =>
+      run(async () => {
+        const identity = await getIdentity();
+        const signature = await identity.signBls(
+          args.consentRequest,
+          args.canisterCall,
+          args.certificate
+        );
+        ok(`BLS signature: ${subaccountToHexString(signature)}`);
+      })
+    );
+
+  const icrc21 = new Command("icrc21")
+    .description("Commands for ICRC-21 consent message operations")
+    .addCommand(
+      new Command("call")
+        .description("Request a consent message for a canister call")
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .requiredOption("--method <method>", "Method name to call")
+        .requiredOption(
+          "--arg <arg>",
+          "Method arguments in hex format",
+          tryParseHexString
+        )
+        .action(async ({ canisterId, method, arg }) =>
+          run(async () => {
+            const identity = await getIdentity();
+            const response = await callConsentMessage(
+              canisterId,
+              method,
+              arg,
+              getCurrentAgent,
+              identity
+            );
+            const formatted = formatConsentResponse(response);
+            ok(formatted);
+          })
+        )
+    );
+
   program
     .description("A CLI for the Ledger hardware wallet.")
     .enablePositionalOptions()
@@ -1372,7 +1424,9 @@ async function main() {
     .addCommand(neuron)
     .addCommand(sns)
     .addCommand(icrc)
-    .addCommand(nodeProvider);
+    .addCommand(nodeProvider)
+    .addCommand(bls)
+    .addCommand(icrc21);
 
   await program.parseAsync(process.argv);
 }

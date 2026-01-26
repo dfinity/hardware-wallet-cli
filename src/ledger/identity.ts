@@ -246,6 +246,41 @@ export class LedgerIdentity extends SignIdentity {
     });
   }
 
+  public async signBls(
+    consentRequest: string,
+    canisterCall: string,
+    certificate: string
+  ): Promise<Signature> {
+    return await this._executeWithApp(async (app: LedgerApp) => {
+      const resp: ResponseSign = await app.signBls(
+        this.derivePath,
+        consentRequest,
+        canisterCall,
+        certificate
+      );
+
+      // Remove the "neuron stake" flag, since we already signed the transaction.
+      this._neuronStakeFlag = false;
+
+      const signatureRS = resp.signatureRS;
+      if (!signatureRS) {
+        throw new Error(
+          `A ledger error happened during signature:\n` +
+            `Code: ${resp.returnCode}\n` +
+            `Message: ${JSON.stringify(resp.errorMessage)}\n`
+        );
+      }
+
+      if (signatureRS?.byteLength !== 64) {
+        throw new Error(
+          `Signature must be 64 bytes long (is ${signatureRS.length})`
+        );
+      }
+
+      return new Uint8Array(signatureRS) as Signature;
+    });
+  }
+
   /**
    * Signals that the upcoming transaction to be signed will be a "stake neuron" transaction.
    */
