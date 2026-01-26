@@ -175,9 +175,6 @@ export async function callConsentMessage(
   const consentRequestHex = bytesToHexString(Cbor.encode({ content: consentRequest }));
   console.log(consentRequestHex);
 
-  // FIXME: compute this
-  //const canisterCallHex = 'd9d9f7a167636f6e74656e74a763617267554449444c0001710d48656c6c6f2c20776f726c64216b63616e69737465725f69644a0000000000600b7301016e696e67726573735f6578706972791b1859439106beb8006b6d6574686f645f6e616d65656772656574656e6f6e636550b27f450f2f98428befc91715d1db164f6c726571756573745f747970656463616c6c6673656e646572581d052c5f6f270fc4a3a882a8075732cba90ad4bd25d30bd2cf7b0bfe7c02';
-
   const canisterCall = Cbor.encode({
     content: {
       arg: arrayOfNumberToUint8Array(hexStringToBytes(argHex)),
