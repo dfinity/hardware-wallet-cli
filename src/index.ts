@@ -37,6 +37,7 @@ import {
   isCurrentVersionSmallerThanFullCandidParser,
   jsonStringifyWithBigInt,
   bytesToHexString,
+  hexStringToBytes,
 } from "./utils";
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
 import { AnonymousIdentity, Identity } from "@icp-sdk/core/agent";
@@ -70,7 +71,7 @@ import {
 import "node-window-polyfill/register";
 
 import { Secp256k1PublicKey } from "./ledger/secp256k1";
-import { callConsentMessage, formatConsentResponse } from "./icrc21";
+import { Icrc21Agent } from "./icrc21-agent";
 
 // Set window.fetch to Node's native fetch (required by agent library)
 (window as any).fetch = fetch;
@@ -1385,13 +1386,16 @@ async function main() {
         .action(async ({ canisterId, method, arg }) =>
           run(async () => {
             const identity = await getIdentity();
-            const submitResponse = await callConsentMessage(
-              canisterId,
-              method,
-              arg,
-              await getCurrentAgent(new AnonymousIdentity()),
-              identity
-            );
+            const network = program.opts().network;
+
+            const icrc21Agent = new Icrc21Agent(identity, network);
+
+            const submitResponse = await icrc21Agent.call(canisterId, {
+              methodName: method,
+              arg: new Uint8Array(hexStringToBytes(arg)),
+              effectiveCanisterId: canisterId,
+            });
+
             // Log the SubmitResponse details
             console.log(
               "Request ID:",
