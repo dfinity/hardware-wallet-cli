@@ -35,6 +35,7 @@ const TransportNodeHidNoEvents =
 type Transport = typeof TransportWebHID;
 
 import { isNullish, nonNullish } from "@dfinity/utils";
+import { bytesToHexString } from "../utils";
 
 // Set global.fetch for agent-js compatibility (Node 18+ has native fetch)
 (global as any).fetch = fetch;
@@ -54,6 +55,12 @@ export class LedgerIdentity extends SignIdentity {
   // A flag to signal that the next transaction to be signed will be
   // a "stake neuron" transaction.
   private _neuronStakeFlag = false;
+
+  // A flag to signal that the next transaction to be signed will be
+  // an ICRC-21 transaction.
+  private _icrc21Flag = false;
+  private _consentRequestHex = "";
+  private _certificateHex = "";
 
   /**
    * Create a LedgerIdentity using the Web USB transport.
@@ -288,9 +295,43 @@ export class LedgerIdentity extends SignIdentity {
     this._neuronStakeFlag = true;
   }
 
+  /**
+   * Signals that the upcoming transaction to be signed will be an ICRC-21 transaction.
+   * @param consentRequestHex - The consent request hex string
+   * @param certificateHex - The certificate hex string
+   */
+  public flagUpcomingIcrc21(
+    consentRequestHex: string,
+    certificateHex: string
+  ): void {
+    this._icrc21Flag = true;
+    this._consentRequestHex = consentRequestHex;
+    this._certificateHex = certificateHex;
+  }
+
   public async transformRequest(request: HttpAgentRequest): Promise<unknown> {
     const { body, ...fields } = request;
-    const signature = await this.sign(_prepareCborForLedger(body));
+
+    let signature: Signature;
+
+    if (this._icrc21Flag) {
+      // Use BLS signing for ICRC-21 transactions
+      const canisterCallHex = bytesToHexString(_prepareCborForLedger(body));
+      signature = await this.signBls(
+        this._consentRequestHex,
+        canisterCallHex,
+        this._certificateHex
+      );
+
+      // Reset the ICRC-21 flag after signing
+      this._icrc21Flag = false;
+      this._consentRequestHex = "";
+      this._certificateHex = "";
+    } else {
+      // Use standard signing for regular transactions
+      signature = await this.sign(_prepareCborForLedger(body));
+    }
+
     return {
       ...fields,
       body: {

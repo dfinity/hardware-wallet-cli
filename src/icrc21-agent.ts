@@ -9,15 +9,11 @@ import type {
 } from "@icp-sdk/core/agent";
 import {
   HttpAgent,
-  Certificate,
-  SubmitRequestType,
-  requestIdOf,
   Cbor,
   AnonymousIdentity,
 } from "@icp-sdk/core/agent";
 import { IDL } from "@icp-sdk/core/candid";
 import { bytesToHexString } from "./utils";
-import { lookupResultToBuffer } from "@icp-sdk/core/agent";
 import { LedgerIdentity } from "./ledger/identity";
 
 // Define ICRC-21 consent message types
@@ -134,8 +130,8 @@ export class Icrc21Agent implements Agent {
   /**
    * Implements the ICRC-21 consent flow:
    * 1. Get consent message from certificate
-   * 2. Build and sign the actual canister call request
-   * 3. Submit the signed request
+   * 2. Flag the identity to use BLS signing for the upcoming call
+   * 3. Call through signingAgent, which will use transformRequest -> signBls
    * 4. Return SubmitResponse
    */
   async call(
@@ -147,33 +143,19 @@ export class Icrc21Agent implements Agent {
     // 1. Get consent message from certificate
     const { consentRequest, certificateBytes } = await this.getConsentMessage(canisterId, fields);
 
-    // 2. Build the actual canister call request
-    const senderPrincipal = await this.identity.getPrincipal();
+    // 2. Encode consentRequest and certificate as hex strings
+    const consentRequestHex = bytesToHexString(Cbor.encode({ content: consentRequest }));
+    const certificateHex = bytesToHexString(certificateBytes);
 
-    const canisterCallContent: CallRequest = {
-      request_type: SubmitRequestType.Call,
-      canister_id: canisterId,
-      method_name: fields.methodName,
+    // 3. Flag the identity to use BLS signing for the upcoming call
+    this.identity.flagUpcomingIcrc21(consentRequestHex, certificateHex);
+
+    // 4. Call through signingAgent - transformRequest will use signBls due to the flag
+    return await this.signingAgent.call(canisterId, {
+      methodName: fields.methodName,
       arg: fields.arg,
-      sender: senderPrincipal,
-      ingress_expiry: consentRequest.ingress_expiry,
-      nonce: consentRequest.nonce,
-    };
-
-    // Calculate requestId for the actual call
-    const actualRequestId = requestIdOf(canisterCallContent);
-
-    // 3. Get BLS signature
-    const { signature } = await this.signRequest(consentRequest, canisterCallContent, certificateBytes);
-
-    // 4. Submit the signed request
-    const submitResponse = await this.submitSignedRequest(canisterId, canisterCallContent, signature);
-
-    return {
-      requestId: actualRequestId,
-      response: submitResponse.response,
-      requestDetails: canisterCallContent,
-    };
+      effectiveCanisterId: canisterId,
+    });
   }
 
   private async getConsentMessage(
@@ -221,60 +203,6 @@ export class Icrc21Agent implements Agent {
     return { consentRequest, certificateBytes };
   }
 
-  private async signRequest(
-    consentRequest: CallRequest,
-    canisterCallContent: CallRequest,
-    certificateBytes: Uint8Array
-  ): Promise<{ signature: Uint8Array }> {
-    const consentRequestHex = bytesToHexString(Cbor.encode({ content: consentRequest }));
-    const canisterCallHex = bytesToHexString(Cbor.encode({ content: canisterCallContent }));
-    const certificateHex = bytesToHexString(certificateBytes);
-
-    const signature = await this.identity.signBls(
-      consentRequestHex,
-      canisterCallHex,
-      certificateHex
-    );
-
-    return { signature };
-  }
-
-  private async submitSignedRequest(
-    canisterId: Principal,
-    canisterCallContent: CallRequest,
-    signature: Uint8Array
-  ): Promise<{ response: { ok: boolean; status: number; statusText: string; body: unknown; headers: unknown[] } }> {
-    const fetch = global.fetch.bind(global);
-
-    const requestBody = {
-      content: canisterCallContent,
-      sender_pubkey: this.identity.getPublicKey().toDer(),
-      sender_sig: signature,
-    };
-
-    const requestBodyCbor = Cbor.encode(requestBody);
-    const url = new URL(`/api/v4/canister/${canisterId.toText()}/call`, this.host);
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/cbor" },
-      body: requestBodyCbor,
-    });
-
-    const responseBodyBytes = new Uint8Array(await response.arrayBuffer());
-    const responseBody = responseBodyBytes.byteLength > 0 ? Cbor.decode(responseBodyBytes) : null;
-
-    return {
-      response: {
-        ok: response.ok,
-        status: response.status,
-        statusText: response.statusText,
-        body: responseBody,
-        headers: [],
-      },
-    };
-  }
-
   async status(): Promise<Record<string, unknown>> {
     throw new Error("Icrc21Agent.status() is not implemented");
   }
@@ -301,6 +229,6 @@ export class Icrc21Agent implements Agent {
   }
 
   async fetchRootKey(): Promise<Uint8Array> {
-    throw new Error("Icrc21Agent.fetchRootKey() is not implemented");
+    return this.signingAgent.fetchRootKey();
   }
 }
