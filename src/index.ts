@@ -36,6 +36,7 @@ import {
   nowInBigIntNanoSeconds,
   isCurrentVersionSmallerThanFullCandidParser,
   jsonStringifyWithBigInt,
+  bytesToHexString,
 } from "./utils";
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
 import { AnonymousIdentity, Identity } from "@icp-sdk/core/agent";
@@ -1384,15 +1385,20 @@ async function main() {
         .action(async ({ canisterId, method, arg }) =>
           run(async () => {
             const identity = await getIdentity();
-            const response = await callConsentMessage(
+            const submitResponse = await callConsentMessage(
               canisterId,
               method,
               arg,
-              getCurrentAgent,
+              await getCurrentAgent(new AnonymousIdentity()),
               identity
             );
-            const formatted = formatConsentResponse(response);
-            ok(formatted);
+            // Log the SubmitResponse details
+            console.log(
+              "Request ID:",
+              bytesToHexString(Array.from(submitResponse.requestId))
+            );
+            console.log("Response:", submitResponse.response);
+            ok("Canister call completed successfully");
           })
         )
     );

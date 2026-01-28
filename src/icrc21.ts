@@ -4,8 +4,9 @@ import {
   Certificate,
   lookupResultToBuffer,
   SubmitRequestType,
+  SubmitResponse,
 } from "@icp-sdk/core/agent";
-import type { CallRequest, Identity } from "@icp-sdk/core/agent";
+import type { Agent, CallRequest, Identity } from "@icp-sdk/core/agent";
 import type {
   icrc21_consent_message_request,
   icrc21_consent_message_response,
@@ -17,7 +18,7 @@ import {
   Cbor,
   requestIdOf,
 } from "@icp-sdk/core/agent";
-import { hexStringToBytes, bytesToHexString } from "./utils";
+import { hexStringToBytes, bytesToHexString, getAgent } from "./utils";
 import { arrayOfNumberToUint8Array } from "@dfinity/utils";
 
 // TextEncoder for converting strings to UTF-8 bytes
@@ -92,8 +93,8 @@ const icrc21_consent_message_response = IDL.Variant({
  *
  * @param canisterId - The canister to query
  * @param method - The method name to get consent for
- * @param argHex - The method arguments in hex format
- * @param agentFn - Function to get the agent
+ * @param arg- TODO: add comment
+ * @param agent - TODO: add comment
  * @param identity - The identity to use for the call
  * @returns The consent message response
  */
@@ -101,21 +102,17 @@ export async function callConsentMessage(
   canisterId: Principal,
   method: string,
   argHex: string,
-  agentFn: (identity: Identity) => Promise<import("@icp-sdk/core/agent").Agent>,
+  agent: Agent,
   identity: Identity
-): Promise<icrc21_consent_message_response> {
-  console.log(`calling consent message to canister ${canisterId.toText()}`);
+): Promise<SubmitResponse> {
   const fetch = global.fetch.bind(global);
-
-  // Get the agent using the provided function
-  const agent = await agentFn(new AnonymousIdentity());
-
+  const arg = arrayOfNumberToUint8Array(hexStringToBytes(argHex));
   console.log(
     "1. Sending a request to the target canister to get the consent message"
   );
   const request: icrc21_consent_message_request = {
-    method: method,
-    arg: arrayOfNumberToUint8Array(hexStringToBytes(argHex)),
+    method,
+    arg,
     user_preferences: {
       metadata: {
         language: "en",
@@ -193,9 +190,9 @@ export async function callConsentMessage(
   );
   console.log(consentRequestHex);
 
-  const canisterCallContent = {
+  const canisterCallContent: CallRequest = {
     request_type: "call",
-    arg: arrayOfNumberToUint8Array(hexStringToBytes(argHex)),
+    arg,
     method_name: method,
     canister_id: canisterId,
     ingress_expiry: consentRequest.ingress_expiry,
@@ -209,6 +206,11 @@ export async function callConsentMessage(
 
   const canisterCallHex = bytesToHexString(canisterCall);
   console.log(`canister call: ${canisterCallHex}`);
+
+  // Calculate requestId for the actual call
+  const requestId = requestIdOf(canisterCallContent);
+  console.log("requestId for actual call:");
+  console.log(bytesToHexString(Array.from(requestId)));
 
   const certificateHex = bytesToHexString(certificateBytes);
 
@@ -255,58 +257,32 @@ export async function callConsentMessage(
   console.log("response 2");
   console.log(response2);
 
+  // Extract response status and body
   const responseBodyCbor = await response2.arrayBuffer();
+  const responseBodyBytes = new Uint8Array(responseBodyCbor);
 
   console.log("response cbor");
-  console.log(bytesToHexString(Array.from(new Uint8Array(responseBodyCbor))));
+  console.log(bytesToHexString(Array.from(responseBodyBytes)));
 
-  const responseBody = Cbor.decode(new Uint8Array(responseBodyCbor));
+  // Parse the response body if not empty
+  const responseBody =
+    responseBodyBytes.byteLength > 0 ? Cbor.decode(responseBodyBytes) : null;
 
-  console.log("Response body:", responseBody);
-  console.log("Extracting the certificate from the response...");
-  const certificateBytes2 = responseBody.certificate;
-
-  console.log("certificate:");
-  console.log(bytesToHexString(Array.from(certificateBytes2)));
-
-  console.log("3. Extract the response from the certificate...");
-  // Create a Certificate and look up the reply
-  const certificate2 = await Certificate.create({
-    certificate: certificateBytes2,
-    rootKey: agent.rootKey!,
-    principal: { canisterId },
-    agent,
-  });
-
-  const submit: CallRequest = {
-    request_type: SubmitRequestType.Call,
-    canister_id: canisterId,
-    method_name: method,
-    arg: arrayOfNumberToUint8Array(hexStringToBytes(argHex)),
-    sender: identity.getPrincipal(),
-    ingress_expiry: consentRequest!.ingress_expiry!,
-    nonce: consentRequest!.nonce,
+  // Construct and return SubmitResponse
+  const submitResponse: SubmitResponse = {
+    requestId,
+    response: {
+      ok: response2.ok,
+      status: response2.status,
+      statusText: response2.statusText,
+      body: responseBody,
+      headers: [], // Could extract actual headers if needed
+    },
+    requestDetails: canisterCallContent,
   };
 
-  console.log("Submit:");
-  console.log(submit);
-
-  const requestId = requestIdOf(submit);
-
-  console.log("requestId:");
-  console.log(bytesToHexString(Array.from(requestId)));
-
-  // Look up the request status and reply from the certificate
-  const path2 = [textEncoder.encode("request_status"), requestId];
-  const reply2 = lookupResultToBuffer(
-    certificate2.lookup_path([...path2, "reply"])
-  )!;
-
-  // Decode the response
-  console.log("result");
-  console.log(bytesToHexString(Array.from(reply2)));
-
-  return response2;
+  console.log("SubmitResponse:", submitResponse);
+  return submitResponse;
 }
 
 /**
