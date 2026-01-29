@@ -291,6 +291,7 @@ async function snsRefreshStake({
   canisterId,
 }: { neuronId: SnsNeuronId | "all" } & SnsCallParams) {
   const identity = await getIdentity();
+  // Use anonymous identity for refresh - anyone can call this operation
   const snsGovernance = SnsGovernanceCanister.create({
     agent: await getCurrentAgent(new AnonymousIdentity()),
     canisterId,
