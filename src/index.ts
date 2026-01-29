@@ -281,6 +281,60 @@ async function snsStakeMaturity({
 }
 
 /**
+ * Refreshes the stake of an SNS neuron.
+ *
+ * @param neuronId The ID of the neuron to refresh, or "all" to refresh all neurons owned by the Ledger identity.
+ * @param canisterId The SNS governance canister ID.
+ */
+async function snsRefreshStake({
+  neuronId,
+  canisterId,
+}: { neuronId: SnsNeuronId | "all" } & SnsCallParams) {
+  const identity = await getIdentity();
+  // Use anonymous identity for refresh - anyone can call this operation
+  const snsGovernance = SnsGovernanceCanister.create({
+    agent: await getCurrentAgent(new AnonymousIdentity()),
+    canisterId,
+  });
+
+  if (neuronId === "all") {
+    const neurons = await snsGovernance.listNeurons({
+      certified: true,
+      principal: identity.getPrincipal(),
+    });
+
+    if (neurons.length === 0) {
+      ok("No neurons found to refresh.");
+      return;
+    }
+
+    let refreshedCount = 0;
+    for (const neuron of neurons) {
+      const nId = fromNullable(neuron.id);
+      if (nId === undefined) {
+        log("Skipping neuron with undefined ID");
+        continue;
+      }
+      await snsGovernance.refreshNeuron(nId);
+      log(
+        `Refreshed stake of neuron ${subaccountToHexString(
+          Uint8Array.from(nId.id)
+        )}`
+      );
+      refreshedCount++;
+    }
+    ok(`Successfully refreshed stake of ${refreshedCount} neuron(s).`);
+  } else {
+    await snsGovernance.refreshNeuron(neuronId);
+    ok(
+      `Successfully refreshed stake of neuron ${subaccountToHexString(
+        Uint8Array.from(neuronId.id)
+      )}`
+    );
+  }
+}
+
+/**
  * ICRC Functionality
  */
 
@@ -599,6 +653,48 @@ async function enableAutoStake(neuronId: bigint, autoStake: boolean) {
   ok();
 }
 
+/**
+ * Refreshes the stake of a neuron.
+ * @param neuronId The ID of the neuron to refresh, or "all" to refresh all neurons.
+ */
+async function refreshStake(neuronId: bigint | "all") {
+  const identity = await getIdentity();
+  // Use Ledger identity for listing neurons
+  const governanceForList = NnsGovernanceCanister.create({
+    agent: await getCurrentAgent(identity),
+  });
+  // Use anonymous identity for refresh - anyone can call this operation
+  const governanceForRefresh = NnsGovernanceCanister.create({
+    agent: await getCurrentAgent(new AnonymousIdentity()),
+  });
+
+  if (neuronId === "all") {
+    const neurons = await governanceForList.listNeurons({ certified: true });
+
+    if (neurons.length === 0) {
+      ok("No neurons found to refresh.");
+      return;
+    }
+
+    for (const neuron of neurons) {
+      const refreshedNeuronId = await governanceForRefresh.claimOrRefreshNeuron(
+        {
+          neuronId: neuron.neuronId,
+          by: { NeuronIdOrSubaccount: {} },
+        }
+      );
+      log(`Refreshed stake of neuron ${refreshedNeuronId}`);
+    }
+    ok(`Successfully refreshed stake for ${neurons.length} neuron(s).`);
+  } else {
+    const refreshedNeuronId = await governanceForRefresh.claimOrRefreshNeuron({
+      neuronId,
+      by: { NeuronIdOrSubaccount: {} },
+    });
+    ok(`Successfully refreshed stake of neuron ${refreshedNeuronId}`);
+  }
+}
+
 async function startDissolving(neuronId: bigint) {
   const identity = await getIdentity();
   const governance = NnsGovernanceCanister.create({
@@ -800,7 +896,7 @@ async function claimNeurons() {
 
 async function getNeuron(neuronId: bigint) {
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
   const neuron = await governance.getNeuron({
@@ -1064,6 +1160,37 @@ async function main() {
             })
           )
         )
+    )
+    .addCommand(
+      new Command("refresh")
+        .description("Refresh the stake of an SNS neuron.")
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .option("--neuron-id <neuron-id>", "Neuron ID", tryParseSnsNeuronId)
+        .option("--all", "Refresh all neurons owned by the Ledger identity")
+        .action((args) => {
+          if (args.all && args.neuronId) {
+            console.error(
+              "Error: Cannot use both --neuron-id and --all.\nUse --neuron-id <ID> to refresh a specific neuron, or --all to refresh all neurons."
+            );
+            process.exit(1);
+          }
+          if (!args.all && !args.neuronId) {
+            console.error(
+              "Error: Missing target neuron.\nUse --neuron-id <ID> to refresh a specific neuron, or --all to refresh all neurons."
+            );
+            process.exit(1);
+          }
+          run(() =>
+            snsRefreshStake({
+              neuronId: args.all ? "all" : args.neuronId,
+              canisterId: args.canisterId,
+            })
+          );
+        })
     );
 
   const sns = new Command("sns")
@@ -1302,10 +1429,31 @@ async function main() {
         .action((args) => run(() => claimNeurons()))
     )
     .addCommand(
-        new Command("info")
-            .description("Show full information about a neuron.")
-            .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
-            .action((args) => run(() => getNeuron(args.neuronId)))
+      new Command("refresh")
+        .description("Refresh the stake of a neuron.")
+        .option("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .option("--all", "Refresh all neurons")
+        .action((args) => {
+          if (args.all && args.neuronId) {
+            console.error(
+              "Error: Cannot use both --neuron-id and --all.\nUse --neuron-id <ID> to refresh a specific neuron, or --all to refresh all neurons."
+            );
+            process.exit(1);
+          }
+          if (!args.all && !args.neuronId) {
+            console.error(
+              "Error: Missing target neuron.\nUse --neuron-id <ID> to refresh a specific neuron, or --all to refresh all neurons."
+            );
+            process.exit(1);
+          }
+          run(() => refreshStake(args.all ? "all" : args.neuronId));
+        })
+    )
+    .addCommand(
+      new Command("info")
+        .description("Show full information about a neuron.")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .action((args) => run(() => getNeuron(args.neuronId)))
     );
 
   const icp = new Command("icp")
