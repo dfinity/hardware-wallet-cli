@@ -315,13 +315,21 @@ async function snsRefreshStake({
         continue;
       }
       await snsGovernance.refreshNeuron(nId);
-      log(`Refreshed stake of neuron ${subaccountToHexString(Uint8Array.from(nId.id))}`);
+      log(
+        `Refreshed stake of neuron ${subaccountToHexString(
+          Uint8Array.from(nId.id)
+        )}`
+      );
       refreshedCount++;
     }
     ok(`Successfully refreshed stake of ${refreshedCount} neuron(s).`);
   } else {
     await snsGovernance.refreshNeuron(neuronId);
-    ok(`Successfully refreshed stake of neuron ${subaccountToHexString(Uint8Array.from(neuronId.id))}`);
+    ok(
+      `Successfully refreshed stake of neuron ${subaccountToHexString(
+        Uint8Array.from(neuronId.id)
+      )}`
+    );
   }
 }
 
@@ -668,15 +676,20 @@ async function refreshStake(neuronId: bigint | "all") {
     }
 
     for (const neuron of neurons) {
-      const refreshedNeuronId = await governanceForRefresh.claimOrRefreshNeuron({
-        neuronId: neuron.neuronId,
-        by: { NeuronIdOrSubaccount: {} },
-      });
+      const refreshedNeuronId = await governanceForRefresh.claimOrRefreshNeuron(
+        {
+          neuronId: neuron.neuronId,
+          by: { NeuronIdOrSubaccount: {} },
+        }
+      );
       log(`Refreshed stake of neuron ${refreshedNeuronId}`);
     }
     ok(`Successfully refreshed stake for ${neurons.length} neuron(s).`);
   } else {
-    const refreshedNeuronId = await governanceForRefresh.claimOrRefreshNeuron({ neuronId, by: { NeuronIdOrSubaccount: {} } });
+    const refreshedNeuronId = await governanceForRefresh.claimOrRefreshNeuron({
+      neuronId,
+      by: { NeuronIdOrSubaccount: {} },
+    });
     ok(`Successfully refreshed stake of neuron ${refreshedNeuronId}`);
   }
 }
@@ -1149,19 +1162,13 @@ async function main() {
     )
     .addCommand(
       new Command("refresh")
-        .description(
-          "Refresh the stake of an SNS neuron."
-        )
+        .description("Refresh the stake of an SNS neuron.")
         .requiredOption(
           "--canister-id <canister-id>",
           "Canister ID",
           tryParsePrincipal
         )
-        .option(
-          "--neuron-id <neuron-id>",
-          "Neuron ID",
-          tryParseSnsNeuronId
-        )
+        .option("--neuron-id <neuron-id>", "Neuron ID", tryParseSnsNeuronId)
         .option("--all", "Refresh all neurons owned by the Ledger identity")
         .action((args) => {
           if (args.all && args.neuronId) {
@@ -1183,7 +1190,7 @@ async function main() {
             })
           );
         })
-      );
+    );
 
   const sns = new Command("sns")
     .description("Commands for managing SNS.")
@@ -1442,10 +1449,10 @@ async function main() {
         })
     )
     .addCommand(
-        new Command("info")
-            .description("Show full information about a neuron.")
-            .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
-            .action((args) => run(() => getNeuron(args.neuronId)))
+      new Command("info")
+        .description("Show full information about a neuron.")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .action((args) => run(() => getNeuron(args.neuronId)))
     );
 
   const icp = new Command("icp")
