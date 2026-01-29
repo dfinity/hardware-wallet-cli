@@ -17,9 +17,9 @@ A CLI to interact with the Internet Computer App on Ledger Nano S/X devices.
 ## Development
 
 - Clone the repository.
-- Run `mise install` to install the supported version of `npm`.
+- Run `mise install` to install the supported version of `pnpm`.
   - If you don't have mise install, you can install it with `curl https://mise.run | sh`
-- Install dependencies with `npm install`.
+- Install dependencies with `pnpm install`.
 
 To execute a command, you can use `just run <args>`. Example: `just run --help`
 
