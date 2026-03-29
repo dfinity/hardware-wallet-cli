@@ -11,8 +11,7 @@
   ],
   "scripts": {
     "format": "prettier --write .",
-    "build:test-canister": "cargo build --manifest-path tests/test-canister/Cargo.toml --target wasm32-unknown-unknown --release && cp tests/test-canister/target/wasm32-unknown-unknown/release/test_canister.wasm tests/test-canister/test_canister.wasm",
-    "pretest": "pnpm run build:test-canister",
+    "pretest": "just build-test-canister",
     "test": "vitest run",
     "build": "node rmdir.mjs && node esbuild.mjs",
     "prepack": "pnpm run build",
