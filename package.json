@@ -71,6 +71,7 @@
       "node-hid"
     ],
     "onlyBuiltDependencies": [
+      "@dfinity/pic",
       "esbuild",
       "node-hid"
     ]
