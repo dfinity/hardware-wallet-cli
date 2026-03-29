@@ -1371,7 +1371,9 @@ async function main() {
     .description("Commands for ICRC-21 consent message operations")
     .addCommand(
       new Command("call")
-        .description("Request a consent message for a canister call")
+        .description(
+          "Request a consent message for a canister call\n\nExample: ic-hardware-wallet icrc21 call --canister-id suje7-zaaaa-aaaad-abnzq-cai --method greet --arg $(didc encode '(\"Hello\")')"
+        )
         .requiredOption(
           "--canister-id <canister-id>",
           "Canister ID",
