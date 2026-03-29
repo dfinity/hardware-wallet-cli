@@ -1302,10 +1302,10 @@ async function main() {
         .action((args) => run(() => claimNeurons()))
     )
     .addCommand(
-        new Command("info")
-            .description("Show full information about a neuron.")
-            .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
-            .action((args) => run(() => getNeuron(args.neuronId)))
+      new Command("info")
+        .description("Show full information about a neuron.")
+        .requiredOption("--neuron-id <neuron-id>", "Neuron ID", tryParseBigInt)
+        .action((args) => run(() => getNeuron(args.neuronId)))
     );
 
   const icp = new Command("icp")

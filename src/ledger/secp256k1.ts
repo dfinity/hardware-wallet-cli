@@ -14,9 +14,7 @@ function equals(b1: Uint8Array, b2: Uint8Array): boolean {
 }
 
 const buf2hex = (buffer: Uint8Array): string => {
-  return [...buffer]
-    .map((x) => x.toString(16).padStart(2, "0"))
-    .join("");
+  return [...buffer].map((x) => x.toString(16).padStart(2, "0")).join("");
 };
 
 // This implementation is adjusted from the Ed25519PublicKey.
