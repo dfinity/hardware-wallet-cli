@@ -25,3 +25,5 @@ dist/
 node_modules/
 
 **/*.rs.bk
+target/
+*.wasm
