@@ -253,7 +253,7 @@ export class LedgerIdentity extends SignIdentity {
     });
   }
 
-  public async signBls(
+  private async signBls(
     consentRequest: string,
     canisterCall: string,
     certificate: string
