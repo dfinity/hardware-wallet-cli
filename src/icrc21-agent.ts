@@ -11,10 +11,12 @@ import {
   HttpAgent,
   Cbor,
   AnonymousIdentity,
+  Certificate,
+  lookupResultToBuffer,
 } from "@icp-sdk/core/agent";
 import { IDL } from "@icp-sdk/core/candid";
 import { bytesToHexString } from "./utils";
-import { LedgerIdentity } from "./ledger/identity";
+import type { Icrc21Identity } from "./icrc21-identity";
 
 // Define ICRC-21 consent message types
 const icrc21_consent_message_metadata = IDL.Record({
@@ -35,37 +37,7 @@ const icrc21_consent_message_request = IDL.Record({
   user_preferences: icrc21_consent_message_spec,
 });
 
-const TextValue = IDL.Record({ content: IDL.Text });
-
-const TokenAmount = IDL.Record({
-  decimals: IDL.Nat8,
-  amount: IDL.Nat64,
-  symbol: IDL.Text,
-});
-
-const TimestampSeconds = IDL.Record({ amount: IDL.Nat64 });
-const DurationSeconds = IDL.Record({ amount: IDL.Nat64 });
-
-const Value = IDL.Variant({
-  Text: TextValue,
-  TokenAmount: TokenAmount,
-  TimestampSeconds: TimestampSeconds,
-  DurationSeconds: DurationSeconds,
-});
-
-const icrc21_consent_message = IDL.Variant({
-  FieldsDisplayMessage: IDL.Record({
-    fields: IDL.Vec(IDL.Tuple(IDL.Text, Value)),
-    intent: IDL.Text,
-  }),
-  GenericDisplayMessage: IDL.Text,
-});
-
-const icrc21_consent_info = IDL.Record({
-  metadata: icrc21_consent_message_metadata,
-  consent_message: icrc21_consent_message,
-});
-
+// Response types for decoding and error checking
 const icrc21_error_info = IDL.Record({ description: IDL.Text });
 
 const icrc21_error = IDL.Variant({
@@ -79,83 +51,89 @@ const icrc21_error = IDL.Variant({
 });
 
 const icrc21_consent_message_response = IDL.Variant({
-  Ok: icrc21_consent_info,
+  Ok: IDL.Reserved,
   Err: icrc21_error,
 });
 
-const textEncoder = new TextEncoder();
-
 /**
- * Icrc21Agent implements the Agent interface with ICRC-21 consent message support.
- * Internally creates two HttpAgents:
- * - anonymous_agent: Uses AnonymousIdentity to fetch consent messages
- * - signing_agent: Uses the provided identity to sign and submit requests
+ * Agent that implements the ICRC-21 consent message flow for Ledger hardware wallet signing.
+ *
+ * Uses an anonymous agent to fetch consent messages from canisters, then delegates
+ * the actual call signing to the provided identity via BLS signatures.
  */
 export class Icrc21Agent implements Agent {
   private readonly anonymousAgent: HttpAgent;
   private readonly signingAgent: HttpAgent;
-  private readonly identity: LedgerIdentity;
-  readonly host: string;
+  private readonly identity: Icrc21Identity;
 
-  constructor(identity: LedgerIdentity, network: string) {
-    // Store identity for BLS signing
+  private static readonly DEFAULT_GATEWAY = new URL("https://icp0.io");
+
+  private constructor(identity: Icrc21Identity, gateway: URL) {
     this.identity = identity;
-    this.host = network;
 
-    // Create anonymous agent for fetching consent messages
+    const host = gateway.toString();
     this.anonymousAgent = HttpAgent.createSync({
       identity: new AnonymousIdentity(),
-      host: network,
+      host,
     });
 
-    // Create signing agent for submitting signed requests
     this.signingAgent = HttpAgent.createSync({
       identity,
-      host: network,
+      host,
     });
   }
 
-  // ========== Required Properties ==========
+  static async create(
+    identity: Icrc21Identity,
+    gateway: URL = Icrc21Agent.DEFAULT_GATEWAY
+  ): Promise<Icrc21Agent> {
+    const agent = new Icrc21Agent(identity, gateway);
+    const isMainnet = gateway.host === "ic0.app" || gateway.host === "icp0.io";
+    if (!isMainnet) {
+      await Promise.all([
+        agent.anonymousAgent.fetchRootKey(),
+        agent.signingAgent.fetchRootKey(),
+      ]);
+    }
+    return agent;
+  }
 
   get rootKey(): Uint8Array | null {
     return this.anonymousAgent.rootKey;
   }
 
-  // ========== Required Methods ==========
-
   async getPrincipal(): Promise<Principal> {
     return this.signingAgent.getPrincipal();
   }
 
-  /**
-   * Implements the ICRC-21 consent flow:
-   * 1. Get consent message from certificate
-   * 2. Flag the identity to use BLS signing for the upcoming call
-   * 3. Call through signingAgent, which will use transformRequest -> signBls
-   * 4. Return SubmitResponse
-   */
+  /** Executes a canister call through the ICRC-21 consent message flow. */
   async call(
     canisterIdArg: Principal | string,
     fields: CallOptions
   ): Promise<SubmitResponse> {
     const canisterId = Principal.from(canisterIdArg);
 
-    // 1. Get consent message from certificate
+    // Fetch the consent message from the canister
     const { consentRequest, certificateBytes } = await this.getConsentMessage(canisterId, fields);
 
-    // 2. Encode consentRequest and certificate as hex strings
+    // Encode consent request and certificate as hex for the Ledger device
     const consentRequestHex = bytesToHexString(Cbor.encode({ content: consentRequest }));
     const certificateHex = bytesToHexString(certificateBytes);
 
-    // 3. Flag the identity to use BLS signing for the upcoming call
+    // Flag the identity so transformRequest will use BLS signing
     this.identity.flagUpcomingIcrc21(consentRequestHex, certificateHex);
 
-    // 4. Call through signingAgent - transformRequest will use signBls due to the flag
-    return await this.signingAgent.call(canisterId, {
+    // Submit the actual canister call
+    const result = await this.signingAgent.call(canisterId, {
       methodName: fields.methodName,
       arg: fields.arg,
       effectiveCanisterId: canisterId,
     });
+
+    // Verify the call wasn't rejected by the canister
+    this.checkForRejection(result);
+
+    return result;
   }
 
   private async getConsentMessage(
@@ -170,9 +148,11 @@ export class Icrc21Agent implements Agent {
           method: fields.methodName,
           user_preferences: {
             metadata: {
+              // Ledger hardware wallet firmware only supports "en"
               language: "en",
               utc_offset_minutes: [],
             },
+            // Ledger firmware rejects GenericDisplayMessage due to unsupported characters
             device_spec: [{ FieldsDisplay: null }],
           },
         },
@@ -198,13 +178,85 @@ export class Icrc21Agent implements Agent {
       (consentMessageSubmitResponse.response.body as v4ResponseBody).certificate
     );
 
+    // Decode the certificate and check for ICRC-21 errors
+    const cert = Certificate.createUnverified({
+      certificate: certificateBytes,
+      rootKey,
+      principal: canisterId,
+    });
+    const requestId = consentMessageSubmitResponse.requestId;
+    const replyPath = [
+      new TextEncoder().encode("request_status"),
+      requestId,
+      new TextEncoder().encode("reply"),
+    ];
+    this.checkForRejection(consentMessageSubmitResponse, cert);
+
+    const replyBytes = lookupResultToBuffer(cert.lookup_path(replyPath));
+    if (replyBytes) {
+      const [decoded] = IDL.decode(
+        [icrc21_consent_message_response],
+        replyBytes
+      ) as [Record<string, unknown>];
+      if ("Err" in decoded) {
+        const err = decoded.Err as Record<string, { description: string }>;
+        const variant = Object.keys(err)[0];
+        const description = Object.values(err)[0]?.description ?? "Unknown error";
+        throw new Error(`ICRC-21 consent message error: ${variant} - ${description}`);
+      }
+    }
+
     const consentRequest = consentMessageSubmitResponse.requestDetails;
 
     return { consentRequest, certificateBytes };
   }
 
+  private checkForRejection(
+    response: SubmitResponse,
+    cert?: ReturnType<typeof Certificate.createUnverified>
+  ): void {
+    const rootKey = this.anonymousAgent.rootKey;
+    if (!rootKey) return;
+
+    if (!cert) {
+      const body = response.response.body as v4ResponseBody | undefined;
+      if (!body?.certificate) return;
+
+      const certificateBytes = new Uint8Array(body.certificate);
+      cert = Certificate.createUnverified({
+        certificate: certificateBytes,
+        rootKey,
+        // Principal is only used for certificate verification, not path lookup
+        principal: Principal.fromText("aaaaa-aa"),
+      });
+    }
+
+    const requestId = response.requestId;
+    const statusBytes = lookupResultToBuffer(
+      cert.lookup_path([
+        new TextEncoder().encode("request_status"),
+        requestId,
+        new TextEncoder().encode("status"),
+      ])
+    );
+
+    if (statusBytes && new TextDecoder().decode(statusBytes) === "rejected") {
+      const rejectMsgBytes = lookupResultToBuffer(
+        cert.lookup_path([
+          new TextEncoder().encode("request_status"),
+          requestId,
+          new TextEncoder().encode("reject_message"),
+        ])
+      );
+      const rejectMsg = rejectMsgBytes
+        ? new TextDecoder().decode(rejectMsgBytes)
+        : "Unknown rejection";
+      throw new Error(`Call rejected: ${rejectMsg}`);
+    }
+  }
+
   async status(): Promise<Record<string, unknown>> {
-    throw new Error("Icrc21Agent.status() is not implemented");
+    throw new Error("Icrc21Agent does not implement status()");
   }
 
   async query(
@@ -216,7 +268,7 @@ export class Icrc21Agent implements Agent {
     },
     identity?: Identity | Promise<Identity>
   ): Promise<Record<string, unknown>> {
-    throw new Error("Icrc21Agent.query() is not implemented");
+    throw new Error("Icrc21Agent does not implement query()");
   }
 
   async readState(
@@ -225,10 +277,7 @@ export class Icrc21Agent implements Agent {
     identity?: Identity,
     request?: unknown
   ): Promise<Record<string, unknown>> {
-    throw new Error("Icrc21Agent.readState() is not implemented");
+    throw new Error("Icrc21Agent does not implement readState()");
   }
 
-  async fetchRootKey(): Promise<Uint8Array> {
-    return this.signingAgent.fetchRootKey();
-  }
 }

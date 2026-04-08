@@ -40,7 +40,13 @@ import {
   hexStringToBytes,
 } from "./utils";
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
-import { AnonymousIdentity, Identity } from "@icp-sdk/core/agent";
+import {
+  AnonymousIdentity,
+  Identity,
+  Certificate,
+  lookupResultToBuffer,
+} from "@icp-sdk/core/agent";
+import type { v4ResponseBody } from "@icp-sdk/core/agent";
 import {
   SnsGovernanceCanister,
   SnsGovernanceDid,
@@ -1350,29 +1356,12 @@ async function main() {
         .action((args) => run(() => setNodeProviderAccount(args.account)))
     );
 
-  const bls = new Command("bls")
-    .description("Generate a BLS signature using the Ledger device")
-    .requiredOption("--consent-request <value>", "Consent request string")
-    .requiredOption("--canister-call <value>", "Canister call string")
-    .requiredOption("--certificate <value>", "Certificate string")
-    .action((args) =>
-      run(async () => {
-        const identity = await getIdentity();
-        const signature = await identity.signBls(
-          args.consentRequest,
-          args.canisterCall,
-          args.certificate
-        );
-        ok(`BLS signature: ${subaccountToHexString(signature)}`);
-      })
-    );
-
   const icrc21 = new Command("icrc21")
     .description("Commands for ICRC-21 consent message operations")
     .addCommand(
       new Command("call")
         .description(
-          "Request a consent message for a canister call\n\nExample: ic-hardware-wallet icrc21 call --canister-id suje7-zaaaa-aaaad-abnzq-cai --method greet --arg $(didc encode '(\"Hello\")')"
+          "Request a consent message for a canister call\n\nExample: ic-hardware-wallet icrc21 call --canister-id xxydu-fqaaa-aaaam-ad2ka-cai --method swap --arg $(didc encode '(\"ICP\", \"ckBTC\", 1000000000 : nat64)')"
         )
         .requiredOption(
           "--canister-id <canister-id>",
@@ -1390,7 +1379,7 @@ async function main() {
             const identity = await getIdentity();
             const network = program.opts().network;
 
-            const icrc21Agent = new Icrc21Agent(identity, network);
+            const icrc21Agent = await Icrc21Agent.create(identity, new URL(network));
 
             const submitResponse = await icrc21Agent.call(canisterId, {
               methodName: method,
@@ -1398,13 +1387,34 @@ async function main() {
               effectiveCanisterId: canisterId,
             });
 
-            // Log the SubmitResponse details
-            console.log(
-              "Request ID:",
-              bytesToHexString(Array.from(submitResponse.requestId))
-            );
-            console.log("Response:", submitResponse.response);
-            ok("Canister call completed successfully");
+            const requestId = submitResponse.requestId;
+            ok(`Request ID: ${bytesToHexString(Array.from(requestId))}`);
+
+            // Extract reply from the response certificate
+            const body = submitResponse.response.body as v4ResponseBody | undefined;
+            if (body?.certificate) {
+              const certBytes = new Uint8Array(body.certificate);
+              const rootKey = icrc21Agent.rootKey;
+              if (rootKey) {
+                const cert = Certificate.createUnverified({
+                  certificate: certBytes,
+                  rootKey,
+                  principal: canisterId,
+                });
+                const replyBytes = lookupResultToBuffer(
+                  cert.lookup_path([
+                    new TextEncoder().encode("request_status"),
+                    requestId,
+                    new TextEncoder().encode("reply"),
+                  ])
+                );
+                if (replyBytes) {
+                  const replyHex = bytesToHexString(Array.from(new Uint8Array(replyBytes)));
+                  ok(`Reply: ${replyHex}`);
+                  console.log(`Decode with: didc decode ${replyHex}`);
+                }
+              }
+            }
           })
         )
     );
@@ -1415,7 +1425,7 @@ async function main() {
     .showSuggestionAfterError()
     .addOption(
       new Option("--network <network>", "The IC network to talk to.")
-        .default("https://ic0.app")
+        .default("https://icp0.io")
         .env("IC_NETWORK")
     )
     .addOption(
@@ -1437,7 +1447,6 @@ async function main() {
     .addCommand(sns)
     .addCommand(icrc)
     .addCommand(nodeProvider)
-    .addCommand(bls)
     .addCommand(icrc21);
 
   await program.parseAsync(process.argv);

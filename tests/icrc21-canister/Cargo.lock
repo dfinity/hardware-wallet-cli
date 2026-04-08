@@ -301,6 +301,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "icrc21-canister"
+version = "0.1.0"
+dependencies = [
+ "candid",
+ "ic-cdk",
+ "serde",
+]
+
+[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -558,14 +567,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "test-canister"
-version = "0.1.0"
-dependencies = [
- "candid",
- "ic-cdk",
 ]
 
 [[package]]

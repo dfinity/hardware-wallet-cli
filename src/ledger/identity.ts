@@ -266,9 +266,6 @@ export class LedgerIdentity extends SignIdentity {
         certificate
       );
 
-      // Remove the "neuron stake" flag, since we already signed the transaction.
-      this._neuronStakeFlag = false;
-
       const signatureRS = resp.signatureRS;
       if (!signatureRS) {
         throw new Error(
@@ -373,9 +370,3 @@ interface Version {
   patch: number;
 }
 
-function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
-  return buffer.buffer.slice(
-    buffer.byteOffset,
-    buffer.byteOffset + buffer.byteLength
-  ) as ArrayBuffer;
-}
