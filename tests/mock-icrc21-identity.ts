@@ -11,10 +11,7 @@ import type { Icrc21Identity } from "../src/icrc21-identity";
  * A mock identity that satisfies Icrc21Identity without requiring Ledger hardware.
  * Uses Ed25519 signing internally. Tracks flagUpcomingIcrc21 calls for assertions.
  */
-export class MockIcrc21Identity
-  extends SignIdentity
-  implements Icrc21Identity
-{
+export class MockIcrc21Identity extends SignIdentity implements Icrc21Identity {
   private readonly inner: Ed25519KeyIdentity;
   private _icrc21Flag = false;
   private _consentRequestHex = "";
@@ -36,10 +33,7 @@ export class MockIcrc21Identity
     return this.inner.sign(blob);
   }
 
-  flagUpcomingIcrc21(
-    consentRequestHex: string,
-    certificateHex: string
-  ): void {
+  flagUpcomingIcrc21(consentRequestHex: string, certificateHex: string): void {
     this._icrc21Flag = true;
     this._consentRequestHex = consentRequestHex;
     this._certificateHex = certificateHex;

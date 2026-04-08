@@ -40,7 +40,10 @@ describe("Icrc21Agent", () => {
   it("should call a canister through the ICRC-21 consent flow", async () => {
     const agent = await Icrc21Agent.create(identity, new URL(gatewayUrl));
 
-    const arg = IDL.encode([IDL.Text, IDL.Text, IDL.Nat64], ["ICP", "ckBTC", BigInt(100_000_000)]);
+    const arg = IDL.encode(
+      [IDL.Text, IDL.Text, IDL.Nat64],
+      ["ICP", "ckBTC", BigInt(100_000_000)]
+    );
 
     const result = await agent.call(canisterId, {
       methodName: "swap",
@@ -56,7 +59,10 @@ describe("Icrc21Agent", () => {
     const freshIdentity = new MockIcrc21Identity();
     const agent = await Icrc21Agent.create(freshIdentity, new URL(gatewayUrl));
 
-    const arg = IDL.encode([IDL.Text, IDL.Text, IDL.Nat64], ["ICP", "ckBTC", BigInt(100_000_000)]);
+    const arg = IDL.encode(
+      [IDL.Text, IDL.Text, IDL.Nat64],
+      ["ICP", "ckBTC", BigInt(100_000_000)]
+    );
 
     await agent.call(canisterId, {
       methodName: "swap",
@@ -132,7 +138,10 @@ describe("Icrc21Agent", () => {
   it("should throw when the canister call is rejected", async () => {
     const agent = await Icrc21Agent.create(identity, new URL(gatewayUrl));
 
-    const arg = IDL.encode([IDL.Text, IDL.Text, IDL.Nat64], ["ICP", "ckBTC", BigInt(2_000_000_000)]);
+    const arg = IDL.encode(
+      [IDL.Text, IDL.Text, IDL.Nat64],
+      ["ICP", "ckBTC", BigInt(2_000_000_000)]
+    );
 
     await expect(
       agent.call(canisterId, {
@@ -163,9 +172,9 @@ describe("Icrc21Agent", () => {
   it("should throw on readState()", async () => {
     const agent = await Icrc21Agent.create(identity, new URL(gatewayUrl));
 
-    await expect(
-      agent.readState(canisterId, { paths: [] })
-    ).rejects.toThrow("does not implement readState()");
+    await expect(agent.readState(canisterId, { paths: [] })).rejects.toThrow(
+      "does not implement readState()"
+    );
   });
 
   it("should throw on status()", async () => {

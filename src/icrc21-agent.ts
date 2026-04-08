@@ -114,10 +114,15 @@ export class Icrc21Agent implements Agent {
     const canisterId = Principal.from(canisterIdArg);
 
     // Fetch the consent message from the canister
-    const { consentRequest, certificateBytes } = await this.getConsentMessage(canisterId, fields);
+    const { consentRequest, certificateBytes } = await this.getConsentMessage(
+      canisterId,
+      fields
+    );
 
     // Encode consent request and certificate as hex for the Ledger device
-    const consentRequestHex = bytesToHexString(Cbor.encode({ content: consentRequest }));
+    const consentRequestHex = bytesToHexString(
+      Cbor.encode({ content: consentRequest })
+    );
     const certificateHex = bytesToHexString(certificateBytes);
 
     // Flag the identity so transformRequest will use BLS signing
@@ -159,11 +164,14 @@ export class Icrc21Agent implements Agent {
       ]
     );
 
-    const consentMessageSubmitResponse = await this.anonymousAgent.call(canisterId, {
-      methodName: "icrc21_canister_call_consent_message",
-      arg: consentMessageRequest,
-      effectiveCanisterId: canisterId,
-    });
+    const consentMessageSubmitResponse = await this.anonymousAgent.call(
+      canisterId,
+      {
+        methodName: "icrc21_canister_call_consent_message",
+        arg: consentMessageRequest,
+        effectiveCanisterId: canisterId,
+      }
+    );
 
     if (!consentMessageSubmitResponse.response.body) {
       throw new Error("No response body from consent message call");
@@ -201,8 +209,11 @@ export class Icrc21Agent implements Agent {
       if ("Err" in decoded) {
         const err = decoded.Err as Record<string, { description: string }>;
         const variant = Object.keys(err)[0];
-        const description = Object.values(err)[0]?.description ?? "Unknown error";
-        throw new Error(`ICRC-21 consent message error: ${variant} - ${description}`);
+        const description =
+          Object.values(err)[0]?.description ?? "Unknown error";
+        throw new Error(
+          `ICRC-21 consent message error: ${variant} - ${description}`
+        );
       }
     }
 
@@ -279,5 +290,4 @@ export class Icrc21Agent implements Agent {
   ): Promise<Record<string, unknown>> {
     throw new Error("Icrc21Agent does not implement readState()");
   }
-
 }

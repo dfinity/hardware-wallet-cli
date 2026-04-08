@@ -24,7 +24,14 @@ export type ConsentMessageResponse =
           language: string;
           utc_offset_minutes: [] | [number];
         };
-        consent_message: { GenericDisplayMessage: string } | { FieldsDisplayMessage: { intent: string; fields: Array<[string, unknown]> } };
+        consent_message:
+          | { GenericDisplayMessage: string }
+          | {
+              FieldsDisplayMessage: {
+                intent: string;
+                fields: Array<[string, unknown]>;
+              };
+            };
       };
     }
   | { Err: unknown };

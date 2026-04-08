@@ -1361,7 +1361,7 @@ async function main() {
     .addCommand(
       new Command("call")
         .description(
-          "Request a consent message for a canister call\n\nExample: ic-hardware-wallet icrc21 call --canister-id xxydu-fqaaa-aaaam-ad2ka-cai --method swap --arg $(didc encode '(\"ICP\", \"ckBTC\", 1000000000 : nat64)')"
+          'Request a consent message for a canister call\n\nExample: ic-hardware-wallet icrc21 call --canister-id xxydu-fqaaa-aaaam-ad2ka-cai --method swap --arg $(didc encode \'("ICP", "ckBTC", 1000000000 : nat64)\')'
         )
         .requiredOption(
           "--canister-id <canister-id>",
@@ -1379,7 +1379,10 @@ async function main() {
             const identity = await getIdentity();
             const network = program.opts().network;
 
-            const icrc21Agent = await Icrc21Agent.create(identity, new URL(network));
+            const icrc21Agent = await Icrc21Agent.create(
+              identity,
+              new URL(network)
+            );
 
             const submitResponse = await icrc21Agent.call(canisterId, {
               methodName: method,
@@ -1391,7 +1394,9 @@ async function main() {
             ok(`Request ID: ${bytesToHexString(Array.from(requestId))}`);
 
             // Extract reply from the response certificate
-            const body = submitResponse.response.body as v4ResponseBody | undefined;
+            const body = submitResponse.response.body as
+              | v4ResponseBody
+              | undefined;
             if (body?.certificate) {
               const certBytes = new Uint8Array(body.certificate);
               const rootKey = icrc21Agent.rootKey;
@@ -1409,7 +1414,9 @@ async function main() {
                   ])
                 );
                 if (replyBytes) {
-                  const replyHex = bytesToHexString(Array.from(new Uint8Array(replyBytes)));
+                  const replyHex = bytesToHexString(
+                    Array.from(new Uint8Array(replyBytes))
+                  );
                   ok(`Reply: ${replyHex}`);
                   console.log(`Decode with: didc decode ${replyHex}`);
                 }

@@ -369,4 +369,3 @@ interface Version {
   minor: number;
   patch: number;
 }
-
