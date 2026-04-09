@@ -800,7 +800,7 @@ async function claimNeurons() {
 
 async function getNeuron(neuronId: bigint) {
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
   const neuron = await governance.getNeuron({
