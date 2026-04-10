@@ -5,10 +5,14 @@ run *commands:
 # Alias for run
 alias r := run
 
-# Build test canister WASM
-build-test-canister:
-    cargo build --manifest-path tests/test-canister/Cargo.toml --target wasm32-unknown-unknown --release
-    cp tests/test-canister/target/wasm32-unknown-unknown/release/test_canister.wasm tests/test-canister/test_canister.wasm
+# Deploy test canister to local replica (run `icp network start -d` first)
+local-deploy: build-icrc21-canister
+    icp deploy
+
+# Build ICRC-21 test canister WASM
+build-icrc21-canister:
+    mise exec -- cargo build --manifest-path tests/icrc21-canister/Cargo.toml --target wasm32-unknown-unknown --release
+    cp tests/icrc21-canister/target/wasm32-unknown-unknown/release/icrc21_canister.wasm tests/icrc21-canister/icrc21_canister.wasm
 
 test:
     pnpm test

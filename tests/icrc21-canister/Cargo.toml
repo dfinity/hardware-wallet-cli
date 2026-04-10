@@ -1,5 +1,5 @@
 [package]
-name = "test-canister"
+name = "icrc21-canister"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,3 +9,4 @@ crate-type = ["cdylib"]
 [dependencies]
 ic-cdk = "0.20"
 candid = "0.10"
+serde = "1"
