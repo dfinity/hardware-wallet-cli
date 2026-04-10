@@ -83,7 +83,7 @@ export class LedgerIdentity extends SignIdentity {
   /**
    * Connect to a ledger hardware wallet.
    */
-  private static async _connect(): Promise<[LedgerApp, Transport]> {
+  private static async _connect(): Promise<[typeof LedgerApp, Transport]> {
     async function getTransport() {
       if (await TransportWebHID.isSupported()) {
         // We're in a web browser.
@@ -129,7 +129,7 @@ export class LedgerIdentity extends SignIdentity {
     }
   }
   private static async _fetchPublicKeyFromDevice(
-    app: LedgerApp,
+    app: typeof LedgerApp,
     derivePath: string
   ): Promise<Secp256k1PublicKey> {
     const resp = await app.getAddressAndPubKey(derivePath);
@@ -168,7 +168,7 @@ export class LedgerIdentity extends SignIdentity {
    * and verify the address/pubkey are the same as on the device screen.
    */
   public async showAddressAndPubKeyOnDevice(): Promise<void> {
-    this._executeWithApp(async (app: LedgerApp) => {
+    this._executeWithApp(async (app: typeof LedgerApp) => {
       await app.showAddressAndPubKey(this.derivePath);
     });
   }
@@ -177,7 +177,7 @@ export class LedgerIdentity extends SignIdentity {
    * @returns The verion of the `Internet Computer' app installed on the Ledger device.
    */
   public async getVersion(): Promise<Version> {
-    return this._executeWithApp(async (app: LedgerApp) => {
+    return this._executeWithApp(async (app: typeof LedgerApp) => {
       const res = await app.getVersion();
       if (
         isNullish(res.major) ||
@@ -199,7 +199,7 @@ export class LedgerIdentity extends SignIdentity {
   }
 
   public async getSupportedTokens(): Promise<TokenInfo[]> {
-    return this._executeWithApp(async (app: LedgerApp) => {
+    return this._executeWithApp(async (app: typeof LedgerApp) => {
       const res = await app.tokenRegistry();
       if (nonNullish(res.tokenRegistry)) {
         return res.tokenRegistry;
@@ -217,7 +217,7 @@ export class LedgerIdentity extends SignIdentity {
   }
 
   public async sign(blob: Uint8Array): Promise<Signature> {
-    return await this._executeWithApp(async (app: LedgerApp) => {
+    return await this._executeWithApp(async (app: typeof LedgerApp) => {
       const resp: ResponseSign = await app.sign(
         this.derivePath,
         Buffer.from(blob),
@@ -267,7 +267,7 @@ export class LedgerIdentity extends SignIdentity {
   }
 
   private async _executeWithApp<T>(
-    func: (app: LedgerApp) => Promise<T>
+    func: (app: typeof LedgerApp) => Promise<T>
   ): Promise<T> {
     const [app, transport] = await LedgerIdentity._connect();
 

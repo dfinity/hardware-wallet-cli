@@ -13,6 +13,7 @@
     "format": "prettier --write .",
     "pretest": "just build-test-canister",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit --skipLibCheck",
     "build": "node rmdir.mjs && node esbuild.mjs",
     "prepack": "pnpm run build",
     "clean": "pnpm run build",
