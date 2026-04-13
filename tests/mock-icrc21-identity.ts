@@ -4,6 +4,7 @@ import {
   PublicKey,
   Signature,
 } from "@icp-sdk/core/agent";
+import type { CallRequest } from "@icp-sdk/core/agent";
 import { Ed25519KeyIdentity } from "@icp-sdk/core/identity";
 import type { Icrc21Identity } from "../src/icrc21-identity";
 
@@ -14,8 +15,8 @@ import type { Icrc21Identity } from "../src/icrc21-identity";
 export class MockIcrc21Identity extends SignIdentity implements Icrc21Identity {
   private readonly inner: Ed25519KeyIdentity;
   private _icrc21Flag = false;
-  private _consentRequestHex = "";
-  private _certificateHex = "";
+  private _request: CallRequest | null = null;
+  private _certificateBytes: Uint8Array | null = null;
 
   /** Number of times flagUpcomingIcrc21 was called. */
   flagCallCount = 0;
@@ -40,10 +41,10 @@ export class MockIcrc21Identity extends SignIdentity implements Icrc21Identity {
     return this._icrc21Flag;
   }
 
-  flagUpcomingIcrc21(consentRequestHex: string, certificateHex: string): void {
+  flagUpcomingIcrc21(request: CallRequest, certificateBytes: Uint8Array): void {
     this._icrc21Flag = true;
-    this._consentRequestHex = consentRequestHex;
-    this._certificateHex = certificateHex;
+    this._request = request;
+    this._certificateBytes = certificateBytes;
     this.flagCallCount++;
   }
 
@@ -56,8 +57,8 @@ export class MockIcrc21Identity extends SignIdentity implements Icrc21Identity {
         }
       } finally {
         this._icrc21Flag = false;
-        this._consentRequestHex = "";
-        this._certificateHex = "";
+        this._request = null;
+        this._certificateBytes = null;
       }
     }
     return super.transformRequest(request);

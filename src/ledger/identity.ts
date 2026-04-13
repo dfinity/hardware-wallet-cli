@@ -59,8 +59,8 @@ export class LedgerIdentity extends SignIdentity {
   // A flag to signal that the next transaction to be signed will be
   // an ICRC-21 transaction.
   private _icrc21Flag = false;
-  private _consentRequestHex = "";
-  private _certificateHex = "";
+  private _icrc21ConsentMessageRequest: CallRequest | null = null;
+  private _icrc21ConsentMessageResponseCertificate: Uint8Array | null = null;
 
   /**
    * Create a LedgerIdentity using the Web USB transport.
@@ -253,7 +253,7 @@ export class LedgerIdentity extends SignIdentity {
     });
   }
 
-  private async signBls(
+  private async signIcrc21(
     consentRequest: string,
     canisterCall: string,
     certificate: string
@@ -294,16 +294,14 @@ export class LedgerIdentity extends SignIdentity {
 
   /**
    * Signals that the upcoming transaction to be signed will be an ICRC-21 transaction.
-   * @param consentRequestHex - The consent request hex string
-   * @param certificateHex - The certificate hex string
    */
   public flagUpcomingIcrc21(
-    consentRequestHex: string,
-    certificateHex: string
+    request: CallRequest,
+    certificateBytes: Uint8Array
   ): void {
     this._icrc21Flag = true;
-    this._consentRequestHex = consentRequestHex;
-    this._certificateHex = certificateHex;
+    this._icrc21ConsentMessageRequest = request;
+    this._icrc21ConsentMessageResponseCertificate = certificateBytes;
   }
 
   public async transformRequest(request: HttpAgentRequest): Promise<unknown> {
@@ -312,19 +310,23 @@ export class LedgerIdentity extends SignIdentity {
     let signature: Signature;
 
     if (this._icrc21Flag) {
-      // Use BLS signing for ICRC-21 transactions
+      // Use ICRC-21 signing (consent message verification + signature)
+      const consentRequestHex = bytesToHexString(
+        Cbor.encode({ content: this._icrc21ConsentMessageRequest })
+      );
       const canisterCallHex = bytesToHexString(_prepareCborForLedger(body));
+      const certificateHex = bytesToHexString(this._icrc21ConsentMessageResponseCertificate!);
       try {
-        signature = await this.signBls(
-          this._consentRequestHex,
+        signature = await this.signIcrc21(
+          consentRequestHex,
           canisterCallHex,
-          this._certificateHex
+          certificateHex
         );
       } finally {
         // Reset the ICRC-21 flag after signing
         this._icrc21Flag = false;
-        this._consentRequestHex = "";
-        this._certificateHex = "";
+        this._icrc21ConsentMessageRequest = null;
+        this._icrc21ConsentMessageResponseCertificate = null;
       }
     } else {
       // Use standard signing for regular transactions

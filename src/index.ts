@@ -17,7 +17,7 @@ import {
   tryParseBigInt,
   tryParseBool,
   tryParseE8s,
-  tryParseHexString,
+  assertHexString,
   tryParseIcrcAccount,
   tryParseInt,
   tryParseListBigint,
@@ -849,6 +849,58 @@ function err(error: any) {
   log(`${chalk.bold(chalk.red("Error:"))} ${message}`);
 }
 
+async function icrc21Call({
+  canisterId,
+  method,
+  arg,
+}: {
+  canisterId: Principal;
+  method: string;
+  arg: string;
+}) {
+  const identity = await getIdentity();
+  const network = program.opts().network;
+
+  const icrc21Agent = await Icrc21Agent.create(identity, new URL(network));
+
+  const submitResponse = await icrc21Agent.call(canisterId, {
+    methodName: method,
+    arg: new Uint8Array(hexStringToBytes(arg)),
+    effectiveCanisterId: canisterId,
+  });
+
+  const requestId = submitResponse.requestId;
+  ok(`Request ID: ${bytesToHexString(Array.from(requestId))}`);
+
+  // Extract reply from the response certificate
+  const body = submitResponse.response.body as v4ResponseBody | undefined;
+  if (body?.certificate) {
+    const certBytes = new Uint8Array(body.certificate);
+    const rootKey = icrc21Agent.rootKey;
+    if (rootKey) {
+      const cert = Certificate.createUnverified({
+        certificate: certBytes,
+        rootKey,
+        principal: canisterId,
+      });
+      const replyBytes = lookupResultToBuffer(
+        cert.lookup_path([
+          new TextEncoder().encode("request_status"),
+          requestId,
+          new TextEncoder().encode("reply"),
+        ])
+      );
+      if (replyBytes) {
+        const replyHex = bytesToHexString(
+          Array.from(new Uint8Array(replyBytes))
+        );
+        ok(`Reply: ${replyHex}`);
+        console.log(`Decode with: didc decode ${replyHex}`);
+      }
+    }
+  }
+}
+
 async function main() {
   const icrc = new Command("icrc")
     .description("Commands for managing ICRC ledger.")
@@ -1372,58 +1424,9 @@ async function main() {
         .requiredOption(
           "--arg <arg>",
           "Method arguments in hex format",
-          tryParseHexString
+          assertHexString
         )
-        .action(async ({ canisterId, method, arg }) =>
-          run(async () => {
-            const identity = await getIdentity();
-            const network = program.opts().network;
-
-            const icrc21Agent = await Icrc21Agent.create(
-              identity,
-              new URL(network)
-            );
-
-            const submitResponse = await icrc21Agent.call(canisterId, {
-              methodName: method,
-              arg: new Uint8Array(hexStringToBytes(arg)),
-              effectiveCanisterId: canisterId,
-            });
-
-            const requestId = submitResponse.requestId;
-            ok(`Request ID: ${bytesToHexString(Array.from(requestId))}`);
-
-            // Extract reply from the response certificate
-            const body = submitResponse.response.body as
-              | v4ResponseBody
-              | undefined;
-            if (body?.certificate) {
-              const certBytes = new Uint8Array(body.certificate);
-              const rootKey = icrc21Agent.rootKey;
-              if (rootKey) {
-                const cert = Certificate.createUnverified({
-                  certificate: certBytes,
-                  rootKey,
-                  principal: canisterId,
-                });
-                const replyBytes = lookupResultToBuffer(
-                  cert.lookup_path([
-                    new TextEncoder().encode("request_status"),
-                    requestId,
-                    new TextEncoder().encode("reply"),
-                  ])
-                );
-                if (replyBytes) {
-                  const replyHex = bytesToHexString(
-                    Array.from(new Uint8Array(replyBytes))
-                  );
-                  ok(`Reply: ${replyHex}`);
-                  console.log(`Decode with: didc decode ${replyHex}`);
-                }
-              }
-            }
-          })
-        )
+        .action((args) => run(() => icrc21Call(args)))
     );
 
   program

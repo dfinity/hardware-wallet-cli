@@ -110,7 +110,7 @@ export function tryParseListBigint(nums: string): bigint[] {
   }
 }
 
-export function tryParseHexString(value: string): string {
+export function assertHexString(value: string): string {
   const hexRegex = /^[0-9a-fA-F]*$/;
   if (!hexRegex.test(value)) {
     throw new InvalidArgumentError("Invalid hex string format");

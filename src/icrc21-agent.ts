@@ -9,13 +9,11 @@ import type {
 } from "@icp-sdk/core/agent";
 import {
   HttpAgent,
-  Cbor,
   AnonymousIdentity,
   Certificate,
   lookupResultToBuffer,
 } from "@icp-sdk/core/agent";
 import { IDL } from "@icp-sdk/core/candid";
-import { bytesToHexString } from "./utils";
 import type { Icrc21Identity } from "./icrc21-identity";
 
 // Define ICRC-21 consent message types
@@ -59,7 +57,7 @@ const icrc21_consent_message_response = IDL.Variant({
  * Agent that implements the ICRC-21 consent message flow for Ledger hardware wallet signing.
  *
  * Uses an anonymous agent to fetch consent messages from canisters, then delegates
- * the actual call signing to the provided identity via BLS signatures.
+ * the actual call signing to the provided identity via the ICRC-21 consent flow.
  */
 export class Icrc21Agent implements Agent {
   private readonly anonymousAgent: HttpAgent;
@@ -114,37 +112,38 @@ export class Icrc21Agent implements Agent {
     const canisterId = Principal.from(canisterIdArg);
 
     // Fetch the consent message from the canister
-    const { consentRequest, certificateBytes } = await this.getConsentMessage(
+    // Returns the request and the certificate that contains the response.
+    const { request, certificate } = await this.fetchConsentMessage(
       canisterId,
       fields
     );
 
-    // Encode consent request and certificate as hex for the Ledger device
-    const consentRequestHex = bytesToHexString(
-      Cbor.encode({ content: consentRequest })
-    );
-    const certificateHex = bytesToHexString(certificateBytes);
+    // Flag the identity so transformRequest will use ICRC-21 signing
+    this.identity.flagUpcomingIcrc21(request, certificate);
 
-    // Flag the identity so transformRequest will use BLS signing
-    this.identity.flagUpcomingIcrc21(consentRequestHex, certificateHex);
-
-    // Submit the actual canister call
+    // Send the canister call via the signing agent which triggers ICRC-21 approval.
     const result = await this.signingAgent.call(canisterId, {
       methodName: fields.methodName,
       arg: fields.arg,
-      effectiveCanisterId: canisterId,
+      effectiveCanisterId: fields.effectiveCanisterId,
     });
 
     // Verify the call wasn't rejected by the canister
-    this.checkForRejection(result);
+    this.checkForRejection(this.certificateLookup(result));
 
     return result;
   }
 
-  private async getConsentMessage(
+  /**
+   * Calls icrc21_canister_call_consent_message on the target canister and returns
+   * the call request details and response certificate, both needed by the Ledger
+   * device for ICRC-21 signing. Throws if the canister rejects the call or returns
+   * an ICRC-21 error.
+   */
+  private async fetchConsentMessage(
     canisterId: Principal,
     fields: CallOptions
-  ): Promise<{ consentRequest: CallRequest; certificateBytes: Uint8Array }> {
+  ): Promise<{ request: CallRequest; certificate: Uint8Array }> {
     const consentMessageRequest = IDL.encode(
       [icrc21_consent_message_request],
       [
@@ -164,7 +163,7 @@ export class Icrc21Agent implements Agent {
       ]
     );
 
-    const consentMessageSubmitResponse = await this.anonymousAgent.call(
+    const consentMessageResponse = await this.anonymousAgent.call(
       canisterId,
       {
         methodName: "icrc21_canister_call_consent_message",
@@ -173,96 +172,87 @@ export class Icrc21Agent implements Agent {
       }
     );
 
-    if (!consentMessageSubmitResponse.response.body) {
+    if (!consentMessageResponse.response.body) {
       throw new Error("No response body from consent message call");
     }
 
-    const rootKey = this.anonymousAgent.rootKey;
-    if (!rootKey) {
-      throw new Error("No root key - agent needs to fetch root key first");
-    }
-
-    const certificateBytes = new Uint8Array(
-      (consentMessageSubmitResponse.response.body as v4ResponseBody).certificate
+    const certificate = new Uint8Array(
+      (consentMessageResponse.response.body as v4ResponseBody).certificate
     );
 
-    // Decode the certificate and check for ICRC-21 errors
-    const cert = Certificate.createUnverified({
-      certificate: certificateBytes,
-      rootKey,
-      principal: canisterId,
-    });
-    const requestId = consentMessageSubmitResponse.requestId;
-    const replyPath = [
-      new TextEncoder().encode("request_status"),
-      requestId,
-      new TextEncoder().encode("reply"),
-    ];
-    this.checkForRejection(consentMessageSubmitResponse, cert);
+    const lookup = this.certificateLookup(consentMessageResponse, canisterId);
+    this.checkForRejection(lookup);
+    this.checkForIcrc21Error(lookup);
 
-    const replyBytes = lookupResultToBuffer(cert.lookup_path(replyPath));
-    if (replyBytes) {
-      const [decoded] = IDL.decode(
-        [icrc21_consent_message_response],
-        replyBytes
-      ) as [Record<string, unknown>];
-      if ("Err" in decoded) {
-        const err = decoded.Err as Record<string, { description: string }>;
-        const variant = Object.keys(err)[0];
-        const description =
-          Object.values(err)[0]?.description ?? "Unknown error";
-        throw new Error(
-          `ICRC-21 consent message error: ${variant} - ${description}`
-        );
-      }
+    const request = consentMessageResponse.requestDetails;
+    if (!request) {
+      throw new Error("Missing request details from consent message call");
     }
 
-    const consentRequest = consentMessageSubmitResponse.requestDetails;
-
-    return { consentRequest, certificateBytes };
+    return { request, certificate };
   }
 
-  private checkForRejection(
+  /** Returns a lookup function for reading fields from a call response certificate. */
+  private certificateLookup(
     response: SubmitResponse,
-    cert?: ReturnType<typeof Certificate.createUnverified>
-  ): void {
+    canisterId?: Principal
+  ): (field: string) => Uint8Array | undefined {
     const rootKey = this.anonymousAgent.rootKey;
-    if (!rootKey) return;
+    if (!rootKey) return () => undefined;
 
-    if (!cert) {
-      const body = response.response.body as v4ResponseBody | undefined;
-      if (!body?.certificate) return;
+    const body = response.response.body as v4ResponseBody | undefined;
+    if (!body?.certificate) return () => undefined;
 
-      const certificateBytes = new Uint8Array(body.certificate);
-      cert = Certificate.createUnverified({
-        certificate: certificateBytes,
-        rootKey,
-        // Principal is only used for certificate verification, not path lookup
-        principal: Principal.fromText("aaaaa-aa"),
-      });
-    }
+    const cert = Certificate.createUnverified({
+      certificate: new Uint8Array(body.certificate),
+      rootKey,
+      principal: canisterId ?? Principal.fromText("aaaaa-aa"),
+    });
 
     const requestId = response.requestId;
-    const statusBytes = lookupResultToBuffer(
-      cert.lookup_path([
-        new TextEncoder().encode("request_status"),
-        requestId,
-        new TextEncoder().encode("status"),
-      ])
-    );
-
-    if (statusBytes && new TextDecoder().decode(statusBytes) === "rejected") {
-      const rejectMsgBytes = lookupResultToBuffer(
+    return (field: string) =>
+      lookupResultToBuffer(
         cert.lookup_path([
           new TextEncoder().encode("request_status"),
           requestId,
-          new TextEncoder().encode("reject_message"),
+          new TextEncoder().encode(field),
         ])
       );
+  }
+
+  /** Throws if the certificate indicates the call was rejected. */
+  private checkForRejection(
+    lookup: (field: string) => Uint8Array | undefined
+  ): void {
+    const statusBytes = lookup("status");
+    if (statusBytes && new TextDecoder().decode(statusBytes) === "rejected") {
+      const rejectMsgBytes = lookup("reject_message");
       const rejectMsg = rejectMsgBytes
         ? new TextDecoder().decode(rejectMsgBytes)
         : "Unknown rejection";
       throw new Error(`Call rejected: ${rejectMsg}`);
+    }
+  }
+
+  /** Throws if the consent message response contains an ICRC-21 error. */
+  private checkForIcrc21Error(
+    lookup: (field: string) => Uint8Array | undefined
+  ): void {
+    const replyBytes = lookup("reply");
+    if (!replyBytes) return;
+
+    const [decoded] = IDL.decode(
+      [icrc21_consent_message_response],
+      replyBytes
+    ) as [Record<string, unknown>];
+    if ("Err" in decoded) {
+      const err = decoded.Err as Record<string, { description: string }>;
+      const variant = Object.keys(err)[0];
+      const description =
+        Object.values(err)[0]?.description ?? "Unknown error";
+      throw new Error(
+        `ICRC-21 consent message error: ${variant} - ${description}`
+      );
     }
   }
 
