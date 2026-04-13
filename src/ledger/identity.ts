@@ -314,16 +314,18 @@ export class LedgerIdentity extends SignIdentity {
     if (this._icrc21Flag) {
       // Use BLS signing for ICRC-21 transactions
       const canisterCallHex = bytesToHexString(_prepareCborForLedger(body));
-      signature = await this.signBls(
-        this._consentRequestHex,
-        canisterCallHex,
-        this._certificateHex
-      );
-
-      // Reset the ICRC-21 flag after signing
-      this._icrc21Flag = false;
-      this._consentRequestHex = "";
-      this._certificateHex = "";
+      try {
+        signature = await this.signBls(
+          this._consentRequestHex,
+          canisterCallHex,
+          this._certificateHex
+        );
+      } finally {
+        // Reset the ICRC-21 flag after signing
+        this._icrc21Flag = false;
+        this._consentRequestHex = "";
+        this._certificateHex = "";
+      }
     } else {
       // Use standard signing for regular transactions
       signature = await this.sign(_prepareCborForLedger(body));

@@ -20,6 +20,9 @@ export class MockIcrc21Identity extends SignIdentity implements Icrc21Identity {
   /** Number of times flagUpcomingIcrc21 was called. */
   flagCallCount = 0;
 
+  /** Set to true to simulate a user rejection on the next signing attempt. */
+  rejectNextSign = false;
+
   constructor() {
     super();
     this.inner = Ed25519KeyIdentity.generate();
@@ -33,6 +36,10 @@ export class MockIcrc21Identity extends SignIdentity implements Icrc21Identity {
     return this.inner.sign(blob);
   }
 
+  get icrc21Flag(): boolean {
+    return this._icrc21Flag;
+  }
+
   flagUpcomingIcrc21(consentRequestHex: string, certificateHex: string): void {
     this._icrc21Flag = true;
     this._consentRequestHex = consentRequestHex;
@@ -41,11 +48,17 @@ export class MockIcrc21Identity extends SignIdentity implements Icrc21Identity {
   }
 
   async transformRequest(request: HttpAgentRequest): Promise<unknown> {
-    // Clear the flag like LedgerIdentity does
     if (this._icrc21Flag) {
-      this._icrc21Flag = false;
-      this._consentRequestHex = "";
-      this._certificateHex = "";
+      try {
+        if (this.rejectNextSign) {
+          this.rejectNextSign = false;
+          throw new Error("User rejected signing on device");
+        }
+      } finally {
+        this._icrc21Flag = false;
+        this._consentRequestHex = "";
+        this._certificateHex = "";
+      }
     }
     return super.transformRequest(request);
   }

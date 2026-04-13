@@ -73,6 +73,38 @@ describe("Icrc21Agent", () => {
     expect(freshIdentity.flagCallCount).toBe(1);
   });
 
+  it("should reset ICRC-21 flag after signing rejection", async () => {
+    const rejectIdentity = new MockIcrc21Identity();
+    const agent = await Icrc21Agent.create(rejectIdentity, new URL(gatewayUrl));
+
+    const arg = IDL.encode(
+      [IDL.Text, IDL.Text, IDL.Nat64],
+      ["ICP", "ckBTC", BigInt(100_000_000)]
+    );
+
+    // Simulate user rejecting on the device
+    rejectIdentity.rejectNextSign = true;
+
+    await expect(
+      agent.call(canisterId, {
+        methodName: "swap",
+        arg: new Uint8Array(arg),
+        effectiveCanisterId: canisterId,
+      })
+    ).rejects.toThrow("User rejected signing on device");
+
+    // Flag should be cleared despite the rejection
+    expect(rejectIdentity.icrc21Flag).toBe(false);
+
+    // Subsequent call should succeed
+    const result = await agent.call(canisterId, {
+      methodName: "swap",
+      arg: new Uint8Array(arg),
+      effectiveCanisterId: canisterId,
+    });
+    expect(result.requestId).toBeDefined();
+  });
+
   it("should throw on canister consent message error", async () => {
     const agent = await Icrc21Agent.create(identity, new URL(gatewayUrl));
 
