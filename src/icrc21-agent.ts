@@ -134,7 +134,7 @@ export class Icrc21Agent implements Agent {
     });
 
     // Verify the call wasn't rejected by the canister
-    this.checkForRejection(await this.certificateLookup(result));
+    this.checkForRejection(await this.certificateLookup(result, canisterId));
 
     return result;
   }
@@ -197,7 +197,7 @@ export class Icrc21Agent implements Agent {
   /** Returns a lookup function for reading fields from a call response certificate. */
   private async certificateLookup(
     response: SubmitResponse,
-    canisterId?: Principal
+    canisterId: Principal
   ): Promise<(field: string) => Uint8Array | undefined> {
     const rootKey = this.anonymousAgent.rootKey;
     if (!rootKey) return () => undefined;
@@ -208,7 +208,7 @@ export class Icrc21Agent implements Agent {
     const cert = await Certificate.create({
       certificate: new Uint8Array(body.certificate),
       rootKey,
-      principal: { canisterId: canisterId ?? Principal.fromText("aaaaa-aa") },
+      principal: { canisterId },
     });
 
     const requestId = response.requestId;
