@@ -76,8 +76,8 @@ import {
 // Add polyfill for `window` for `TransportWebHID` checks to work.
 import "node-window-polyfill/register";
 
-import { Secp256k1PublicKey } from "./ledger/secp256k1";
-import { Icrc21Agent } from "./icrc21-agent";
+import { Secp256k1PublicKey } from "@dfinity/ledger-hw-identity";
+import { Icrc21Agent } from "@dfinity/icrc21-agent";
 
 // Set window.fetch to Node's native fetch (required by agent library)
 (window as any).fetch = fetch;

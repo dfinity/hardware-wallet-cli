@@ -1,0 +1,27 @@
+{
+  "name": "@dfinity/icrc21-agent",
+  "version": "0.1.0",
+  "description": "ICRC-21 consent message agent for the Internet Computer",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@icp-sdk/core": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "ISC"
+}

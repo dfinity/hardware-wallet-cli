@@ -1,0 +1,44 @@
+{
+  "name": "@dfinity/hardware-wallet-cli",
+  "version": "0.6.0",
+  "description": "A CLI to interact with the Internet Computer App on Ledger Nano S/X devices.",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "files": [
+    "dist/index.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node rmdir.mjs && node esbuild.mjs",
+    "typecheck": "tsc --noEmit --skipLibCheck",
+    "prepack": "pnpm run build",
+    "execute": "pnpm run build && node ./dist/index.mjs",
+    "run": "node ./dist/index.mjs"
+  },
+  "bin": {
+    "ic-hardware-wallet": "./dist/index.mjs"
+  },
+  "engineStrict": true,
+  "engines": {
+    "node": ">= 18.13.0"
+  },
+  "dependencies": {
+    "@dfinity/icrc21-agent": "workspace:*",
+    "@dfinity/ledger-hw-identity": "workspace:*",
+    "@dfinity/utils": "^4.1.0",
+    "@icp-sdk/canisters": "^3.2.0",
+    "@icp-sdk/core": "^5.0.0",
+    "@zondax/ledger-icp": "^3.2.6",
+    "chalk": "^4.1.2",
+    "commander": "^9.0.0",
+    "node-hid": "^3.2.0",
+    "node-window-polyfill": "^1.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^17.0.16",
+    "@types/node-hid": "^1.3.1",
+    "esbuild": "0.25.0"
+  },
+  "license": "ISC"
+}

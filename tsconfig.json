@@ -1,14 +1,8 @@
 {
-  "compilerOptions": {
-    "module": "preserve",
-    "target": "esnext",
-    "lib": ["esnext", "dom"],
-    "strict": true,
-    "noImplicitAny": false,
-    "esModuleInterop": true,
-    "moduleResolution": "bundler",
-    "outDir": "dist",
-    "resolveJsonModule": true
-  },
-  "exclude": ["scripts"]
+  "files": [],
+  "references": [
+    { "path": "packages/icrc21-agent" },
+    { "path": "packages/ledger-hw-identity" },
+    { "path": "packages/cli" }
+  ]
 }

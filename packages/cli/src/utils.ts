@@ -1,4 +1,4 @@
-import { LedgerIdentity } from "./ledger/identity";
+import { LedgerIdentity } from "@dfinity/ledger-hw-identity";
 import { arrayOfNumberToUint8Array, smallerVersion } from "@dfinity/utils";
 import type { NeuronInfo } from "@icp-sdk/canisters/nns";
 import {

@@ -35,7 +35,13 @@ const TransportNodeHidNoEvents =
 type Transport = typeof TransportWebHID;
 
 import { isNullish, nonNullish } from "@dfinity/utils";
-import { bytesToHexString } from "../utils";
+
+// Convert a byte array to a hex string
+const bytesToHexString = (bytes: number[]): string =>
+  bytes.reduce(
+    (str, byte) => `${str}${byte.toString(16).padStart(2, "0")}`,
+    ""
+  );
 
 // Set global.fetch for agent-js compatibility (Node 18+ has native fetch)
 (global as any).fetch = fetch;
