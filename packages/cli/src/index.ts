@@ -416,7 +416,9 @@ async function showInfo(showOnDevice?: boolean) {
   log(
     chalk.bold(`Address (${identity.derivePath}): `) + accountIdentifier.toHex()
   );
-  log(chalk.bold("Public key: ") + bytesToHexString(Array.from(publicKey.toRaw())));
+  log(
+    chalk.bold("Public key: ") + bytesToHexString(Array.from(publicKey.toRaw()))
+  );
 
   if (showOnDevice) {
     log("Displaying the principal and the address on the device...");
