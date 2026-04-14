@@ -17,6 +17,7 @@ import {
   tryParseBigInt,
   tryParseBool,
   tryParseE8s,
+  assertHexString,
   tryParseIcrcAccount,
   tryParseInt,
   tryParseListBigint,
@@ -35,9 +36,17 @@ import {
   nowInBigIntNanoSeconds,
   isCurrentVersionSmallerThanFullCandidParser,
   jsonStringifyWithBigInt,
+  bytesToHexString,
+  hexStringToBytes,
 } from "./utils";
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
-import { AnonymousIdentity, Identity } from "@icp-sdk/core/agent";
+import {
+  AnonymousIdentity,
+  Identity,
+  Certificate,
+  lookupResultToBuffer,
+} from "@icp-sdk/core/agent";
+import type { v4ResponseBody } from "@icp-sdk/core/agent";
 import {
   SnsGovernanceCanister,
   SnsGovernanceDid,
@@ -68,6 +77,7 @@ import {
 import "node-window-polyfill/register";
 
 import { Secp256k1PublicKey } from "./ledger/secp256k1";
+import { Icrc21Agent } from "./icrc21-agent";
 
 // Set window.fetch to Node's native fetch (required by agent library)
 (window as any).fetch = fetch;
@@ -839,6 +849,58 @@ function err(error: any) {
   log(`${chalk.bold(chalk.red("Error:"))} ${message}`);
 }
 
+async function icrc21Call({
+  canisterId,
+  method,
+  arg,
+}: {
+  canisterId: Principal;
+  method: string;
+  arg: string;
+}) {
+  const identity = await getIdentity();
+  const network = program.opts().network;
+
+  const icrc21Agent = await Icrc21Agent.create(identity, new URL(network));
+
+  const submitResponse = await icrc21Agent.call(canisterId, {
+    methodName: method,
+    arg: new Uint8Array(hexStringToBytes(arg)),
+    effectiveCanisterId: canisterId,
+  });
+
+  const requestId = submitResponse.requestId;
+  ok(`Request ID: ${bytesToHexString(Array.from(requestId))}`);
+
+  // Extract reply from the response certificate
+  const body = submitResponse.response.body as v4ResponseBody | undefined;
+  if (body?.certificate) {
+    const certBytes = new Uint8Array(body.certificate);
+    const rootKey = icrc21Agent.rootKey;
+    if (rootKey) {
+      const cert = Certificate.createUnverified({
+        certificate: certBytes,
+        rootKey,
+        principal: canisterId,
+      });
+      const replyBytes = lookupResultToBuffer(
+        cert.lookup_path([
+          new TextEncoder().encode("request_status"),
+          requestId,
+          new TextEncoder().encode("reply"),
+        ])
+      );
+      if (replyBytes) {
+        const replyHex = bytesToHexString(
+          Array.from(new Uint8Array(replyBytes))
+        );
+        ok(`Reply: ${replyHex}`);
+        console.log(`Decode with: didc decode ${replyHex}`);
+      }
+    }
+  }
+}
+
 async function main() {
   const icrc = new Command("icrc")
     .description("Commands for managing ICRC ledger.")
@@ -1345,13 +1407,35 @@ async function main() {
         )
         .action((args) => run(() => setNodeProviderAccount(args.account)))
     );
+
+  const icrc21 = new Command("icrc21")
+    .description("Commands for ICRC-21 consent message operations")
+    .addCommand(
+      new Command("call")
+        .description(
+          'Request a consent message for a canister call\n\nExample: ic-hardware-wallet icrc21 call --canister-id xxydu-fqaaa-aaaam-ad2ka-cai --method swap --arg $(didc encode \'("ICP", "ckBTC", 1000000000 : nat64)\')'
+        )
+        .requiredOption(
+          "--canister-id <canister-id>",
+          "Canister ID",
+          tryParsePrincipal
+        )
+        .requiredOption("--method <method>", "Method name to call")
+        .requiredOption(
+          "--arg <arg>",
+          "Method arguments in hex format",
+          assertHexString
+        )
+        .action((args) => run(() => icrc21Call(args)))
+    );
+
   program
     .description("A CLI for the Ledger hardware wallet.")
     .enablePositionalOptions()
     .showSuggestionAfterError()
     .addOption(
       new Option("--network <network>", "The IC network to talk to.")
-        .default("https://ic0.app")
+        .default("https://icp0.io")
         .env("IC_NETWORK")
     )
     .addOption(
@@ -1372,7 +1456,8 @@ async function main() {
     .addCommand(neuron)
     .addCommand(sns)
     .addCommand(icrc)
-    .addCommand(nodeProvider);
+    .addCommand(nodeProvider)
+    .addCommand(icrc21);
 
   await program.parseAsync(process.argv);
 }
