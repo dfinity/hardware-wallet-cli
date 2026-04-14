@@ -5,7 +5,7 @@
     "format": "prettier --write .",
     "pretest": "just build-icrc21-canister",
     "test": "vitest run",
-    "typecheck": "pnpm -r run typecheck",
+    "typecheck": "pnpm -r run build && pnpm -r run typecheck",
     "build": "pnpm -r run build",
     "update:icp-sdk": "pnpm update @icp-sdk/canisters @icp-sdk/core @dfinity/utils",
     "build:tokens": "ts-node ./scripts/get-tokens-list.ts"
