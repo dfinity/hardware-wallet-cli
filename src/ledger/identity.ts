@@ -258,7 +258,7 @@ export class LedgerIdentity extends SignIdentity {
     canisterCall: string,
     certificate: string
   ): Promise<Signature> {
-    return await this._executeWithApp(async (app: LedgerApp) => {
+    return await this._executeWithApp(async (app: typeof LedgerApp) => {
       const resp: ResponseSign = await app.signBls(
         this.derivePath,
         consentRequest,
@@ -312,11 +312,11 @@ export class LedgerIdentity extends SignIdentity {
     if (this._icrc21Flag) {
       // Use ICRC-21 signing (consent message verification + signature)
       const consentRequestHex = bytesToHexString(
-        Cbor.encode({ content: this._icrc21ConsentMessageRequest })
+        Array.from(Cbor.encode({ content: this._icrc21ConsentMessageRequest }))
       );
-      const canisterCallHex = bytesToHexString(_prepareCborForLedger(body));
+      const canisterCallHex = bytesToHexString(Array.from(_prepareCborForLedger(body)));
       const certificateHex = bytesToHexString(
-        this._icrc21ConsentMessageResponseCertificate!
+        Array.from(this._icrc21ConsentMessageResponseCertificate!)
       );
       try {
         signature = await this.signIcrc21(

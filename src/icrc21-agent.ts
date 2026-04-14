@@ -6,7 +6,12 @@ import type {
   SubmitResponse,
   CallRequest,
   v4ResponseBody,
+  ApiQueryResponse,
+  QueryFields,
+  ReadStateOptions,
+  ReadStateResponse,
 } from "@icp-sdk/core/agent";
+import type { JsonObject } from "@icp-sdk/core/candid";
 import {
   HttpAgent,
   AnonymousIdentity,
@@ -129,7 +134,7 @@ export class Icrc21Agent implements Agent {
     });
 
     // Verify the call wasn't rejected by the canister
-    this.checkForRejection(this.certificateLookup(result));
+    this.checkForRejection(await this.certificateLookup(result));
 
     return result;
   }
@@ -177,7 +182,7 @@ export class Icrc21Agent implements Agent {
       (consentMessageResponse.response.body as v4ResponseBody).certificate
     );
 
-    const lookup = this.certificateLookup(consentMessageResponse, canisterId);
+    const lookup = await this.certificateLookup(consentMessageResponse, canisterId);
     this.checkForRejection(lookup);
     this.checkForIcrc21Error(lookup);
 
@@ -190,20 +195,20 @@ export class Icrc21Agent implements Agent {
   }
 
   /** Returns a lookup function for reading fields from a call response certificate. */
-  private certificateLookup(
+  private async certificateLookup(
     response: SubmitResponse,
     canisterId?: Principal
-  ): (field: string) => Uint8Array | undefined {
+  ): Promise<(field: string) => Uint8Array | undefined> {
     const rootKey = this.anonymousAgent.rootKey;
     if (!rootKey) return () => undefined;
 
     const body = response.response.body as v4ResponseBody | undefined;
     if (!body?.certificate) return () => undefined;
 
-    const cert = Certificate.createUnverified({
+    const cert = await Certificate.create({
       certificate: new Uint8Array(body.certificate),
       rootKey,
-      principal: canisterId ?? Principal.fromText("aaaaa-aa"),
+      principal: { canisterId: canisterId ?? Principal.fromText("aaaaa-aa") },
     });
 
     const requestId = response.requestId;
@@ -252,28 +257,28 @@ export class Icrc21Agent implements Agent {
     }
   }
 
-  async status(): Promise<Record<string, unknown>> {
+  async fetchRootKey(): Promise<Uint8Array> {
+    throw new Error("Icrc21Agent does not implement fetchRootKey()");
+  }
+
+  async status(): Promise<JsonObject> {
     throw new Error("Icrc21Agent does not implement status()");
   }
 
   async query(
     canisterId: Principal | string,
-    options: {
-      methodName: string;
-      arg: Uint8Array;
-      effectiveCanisterId?: Principal;
-    },
+    options: QueryFields,
     identity?: Identity | Promise<Identity>
-  ): Promise<Record<string, unknown>> {
+  ): Promise<ApiQueryResponse> {
     throw new Error("Icrc21Agent does not implement query()");
   }
 
   async readState(
     effectiveCanisterId: Principal | string,
-    options: { paths: Uint8Array[][] },
+    options: ReadStateOptions,
     identity?: Identity,
     request?: unknown
-  ): Promise<Record<string, unknown>> {
+  ): Promise<ReadStateResponse> {
     throw new Error("Icrc21Agent does not implement readState()");
   }
 }
