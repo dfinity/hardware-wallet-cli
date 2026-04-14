@@ -182,7 +182,10 @@ export class Icrc21Agent implements Agent {
       (consentMessageResponse.response.body as v4ResponseBody).certificate
     );
 
-    const lookup = await this.certificateLookup(consentMessageResponse, canisterId);
+    const lookup = await this.certificateLookup(
+      consentMessageResponse,
+      canisterId
+    );
     this.checkForRejection(lookup);
     this.checkForIcrc21Error(lookup);
 
