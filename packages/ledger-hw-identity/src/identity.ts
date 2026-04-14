@@ -17,7 +17,7 @@ const LedgerApp =
   LedgerAppModule;
 type ResponseSign = LedgerAppModule.ResponseSign;
 type TokenInfo = LedgerAppModule.TokenInfo;
-import { Secp256k1PublicKey } from "./secp256k1";
+import { Secp256k1PublicKey } from "@icp-sdk/core/identity/secp256k1";
 
 // @ts-ignore (no types are available)
 import * as TransportWebHIDModule from "@ledgerhq/hw-transport-webhid";
@@ -161,7 +161,7 @@ export class LedgerIdentity extends SignIdentity {
     const principal = (resp as unknown as { principalText: string })
       .principalText;
     const publicKey = Secp256k1PublicKey.fromRaw(
-      new Uint8Array(resp.publicKey).buffer
+      new Uint8Array(resp.publicKey)
     );
 
     if (

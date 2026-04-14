@@ -1,6 +1,6 @@
 # Run CLI (builds first)
 run *commands:
-    pnpm -r run build --silent && node packages/cli/dist/index.mjs {{commands}}
+    pnpm --silent -r run build && node packages/cli/dist/index.mjs {{commands}}
 
 # Alias for run
 alias r := run
