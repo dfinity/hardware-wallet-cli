@@ -810,7 +810,7 @@ async function claimNeurons() {
 
 async function getNeuron(neuronId: bigint) {
   const identity = await getIdentity();
-  const governance = GovernanceCanister.create({
+  const governance = NnsGovernanceCanister.create({
     agent: await getCurrentAgent(identity),
   });
   const neuron = await governance.getNeuron({
@@ -878,10 +878,10 @@ async function icrc21Call({
     const certBytes = new Uint8Array(body.certificate);
     const rootKey = icrc21Agent.rootKey;
     if (rootKey) {
-      const cert = Certificate.createUnverified({
+      const cert = await Certificate.create({
         certificate: certBytes,
         rootKey,
-        principal: canisterId,
+        principal: { canisterId },
       });
       const replyBytes = lookupResultToBuffer(
         cert.lookup_path([

@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "module": "CommonJS",
+    "module": "preserve",
     "target": "esnext",
     "lib": ["esnext", "dom"],
     "strict": true,
@@ -9,5 +9,6 @@
     "moduleResolution": "bundler",
     "outDir": "dist",
     "resolveJsonModule": true
-  }
+  },
+  "exclude": ["scripts"]
 }
