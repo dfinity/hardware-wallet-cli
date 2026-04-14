@@ -163,14 +163,11 @@ export class Icrc21Agent implements Agent {
       ]
     );
 
-    const consentMessageResponse = await this.anonymousAgent.call(
-      canisterId,
-      {
-        methodName: "icrc21_canister_call_consent_message",
-        arg: consentMessageRequest,
-        effectiveCanisterId: canisterId,
-      }
-    );
+    const consentMessageResponse = await this.anonymousAgent.call(canisterId, {
+      methodName: "icrc21_canister_call_consent_message",
+      arg: consentMessageRequest,
+      effectiveCanisterId: canisterId,
+    });
 
     if (!consentMessageResponse.response.body) {
       throw new Error("No response body from consent message call");
@@ -248,8 +245,7 @@ export class Icrc21Agent implements Agent {
     if ("Err" in decoded) {
       const err = decoded.Err as Record<string, { description: string }>;
       const variant = Object.keys(err)[0];
-      const description =
-        Object.values(err)[0]?.description ?? "Unknown error";
+      const description = Object.values(err)[0]?.description ?? "Unknown error";
       throw new Error(
         `ICRC-21 consent message error: ${variant} - ${description}`
       );

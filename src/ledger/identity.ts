@@ -315,7 +315,9 @@ export class LedgerIdentity extends SignIdentity {
         Cbor.encode({ content: this._icrc21ConsentMessageRequest })
       );
       const canisterCallHex = bytesToHexString(_prepareCborForLedger(body));
-      const certificateHex = bytesToHexString(this._icrc21ConsentMessageResponseCertificate!);
+      const certificateHex = bytesToHexString(
+        this._icrc21ConsentMessageResponseCertificate!
+      );
       try {
         signature = await this.signIcrc21(
           consentRequestHex,
