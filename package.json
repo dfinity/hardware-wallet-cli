@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "format": "prettier --write .",
-    "pretest": "just build-test-canister",
+    "pretest": "just build-icrc21-canister",
     "test": "vitest run",
     "build": "node rmdir.mjs && node esbuild.mjs",
     "prepack": "pnpm run build",

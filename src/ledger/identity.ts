@@ -35,6 +35,7 @@ const TransportNodeHidNoEvents =
 type Transport = typeof TransportWebHID;
 
 import { isNullish, nonNullish } from "@dfinity/utils";
+import { bytesToHexString } from "../utils";
 
 // Set global.fetch for agent-js compatibility (Node 18+ has native fetch)
 (global as any).fetch = fetch;
@@ -54,6 +55,12 @@ export class LedgerIdentity extends SignIdentity {
   // A flag to signal that the next transaction to be signed will be
   // a "stake neuron" transaction.
   private _neuronStakeFlag = false;
+
+  // A flag to signal that the next transaction to be signed will be
+  // an ICRC-21 transaction.
+  private _icrc21Flag = false;
+  private _icrc21ConsentMessageRequest: CallRequest | null = null;
+  private _icrc21ConsentMessageResponseCertificate: Uint8Array | null = null;
 
   /**
    * Create a LedgerIdentity using the Web USB transport.
@@ -246,6 +253,38 @@ export class LedgerIdentity extends SignIdentity {
     });
   }
 
+  private async signIcrc21(
+    consentRequest: string,
+    canisterCall: string,
+    certificate: string
+  ): Promise<Signature> {
+    return await this._executeWithApp(async (app: LedgerApp) => {
+      const resp: ResponseSign = await app.signBls(
+        this.derivePath,
+        consentRequest,
+        canisterCall,
+        certificate
+      );
+
+      const signatureRS = resp.signatureRS;
+      if (!signatureRS) {
+        throw new Error(
+          `A ledger error happened during signature:\n` +
+            `Code: ${resp.returnCode}\n` +
+            `Message: ${JSON.stringify(resp.errorMessage)}\n`
+        );
+      }
+
+      if (signatureRS?.byteLength !== 64) {
+        throw new Error(
+          `Signature must be 64 bytes long (is ${signatureRS.length})`
+        );
+      }
+
+      return new Uint8Array(signatureRS) as Signature;
+    });
+  }
+
   /**
    * Signals that the upcoming transaction to be signed will be a "stake neuron" transaction.
    */
@@ -253,9 +292,49 @@ export class LedgerIdentity extends SignIdentity {
     this._neuronStakeFlag = true;
   }
 
+  /**
+   * Signals that the upcoming transaction to be signed will be an ICRC-21 transaction.
+   */
+  public flagUpcomingIcrc21(
+    request: CallRequest,
+    certificateBytes: Uint8Array
+  ): void {
+    this._icrc21Flag = true;
+    this._icrc21ConsentMessageRequest = request;
+    this._icrc21ConsentMessageResponseCertificate = certificateBytes;
+  }
+
   public async transformRequest(request: HttpAgentRequest): Promise<unknown> {
     const { body, ...fields } = request;
-    const signature = await this.sign(_prepareCborForLedger(body));
+
+    let signature: Signature;
+
+    if (this._icrc21Flag) {
+      // Use ICRC-21 signing (consent message verification + signature)
+      const consentRequestHex = bytesToHexString(
+        Cbor.encode({ content: this._icrc21ConsentMessageRequest })
+      );
+      const canisterCallHex = bytesToHexString(_prepareCborForLedger(body));
+      const certificateHex = bytesToHexString(
+        this._icrc21ConsentMessageResponseCertificate!
+      );
+      try {
+        signature = await this.signIcrc21(
+          consentRequestHex,
+          canisterCallHex,
+          certificateHex
+        );
+      } finally {
+        // Reset the ICRC-21 flag after signing
+        this._icrc21Flag = false;
+        this._icrc21ConsentMessageRequest = null;
+        this._icrc21ConsentMessageResponseCertificate = null;
+      }
+    } else {
+      // Use standard signing for regular transactions
+      signature = await this.sign(_prepareCborForLedger(body));
+    }
+
     return {
       ...fields,
       body: {
@@ -295,11 +374,4 @@ interface Version {
   major: number;
   minor: number;
   patch: number;
-}
-
-function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
-  return buffer.buffer.slice(
-    buffer.byteOffset,
-    buffer.byteOffset + buffer.byteLength
-  ) as ArrayBuffer;
 }
