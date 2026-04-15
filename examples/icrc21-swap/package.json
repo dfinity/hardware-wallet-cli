@@ -9,7 +9,7 @@
   "dependencies": {
     "@dfinity/icrc21-agent": "workspace:*",
     "@dfinity/ledger-wallet-identity": "workspace:*",
-    "@icp-sdk/core": "^5.0.0"
+    "@icp-sdk/core": "^5.2.1"
   },
   "devDependencies": {
     "buffer": "^6.0.3",

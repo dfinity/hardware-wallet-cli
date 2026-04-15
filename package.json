@@ -21,7 +21,7 @@
   "license": "ISC",
   "devDependencies": {
     "@dfinity/pic": "^0.21.0",
-    "@icp-sdk/core": "^5.0.0",
+    "@icp-sdk/core": "^5.2.1",
     "@types/google-protobuf": "^3.15.6",
     "prettier": "^2.6.2",
     "ts-node": "^10.9.1",
