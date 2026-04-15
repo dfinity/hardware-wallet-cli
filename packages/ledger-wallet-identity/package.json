@@ -35,10 +35,10 @@
     "directory": "packages/ledger-wallet-identity"
   },
   "dependencies": {
-    "@icp-sdk/core": "^5.0.0",
+    "@icp-sdk/core": "^5.2.1",
     "@ledgerhq/hw-transport-node-hid-noevents": "^6.34.0",
     "@ledgerhq/hw-transport-webhid": "^6.34.0",
-    "@zondax/ledger-icp": "^3.2.6"
+    "@zondax/ledger-icp": "^3.2.8"
   },
   "peerDependencies": {
     "node-hid": "^3.2.0"

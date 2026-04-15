@@ -55,6 +55,56 @@ describe("Icrc21Agent", () => {
     expect(result.response).toBeDefined();
   });
 
+  it("should update a canister through the ICRC-21 consent flow and return the reply", async () => {
+    const agent = await Icrc21Agent.create(identity, new URL(gatewayUrl));
+
+    const arg = IDL.encode(
+      [IDL.Text, IDL.Text, IDL.Nat64],
+      ["ckBTC", "ICP", BigInt(10_000_000)]
+    );
+
+    const result = await agent.update(canisterId, {
+      methodName: "swap",
+      arg: new Uint8Array(arg),
+      effectiveCanisterId: canisterId,
+    });
+
+    expect(result.reply).toBeDefined();
+    expect(result.certificate).toBeDefined();
+
+    const decoded = IDL.decode([IDL.Text], result.reply)[0] as string;
+    expect(decoded).toBe("Swapped 10000000 ckBTC for ICP");
+  });
+
+  it("should throw on ICRC-21 error via update()", async () => {
+    const agent = await Icrc21Agent.create(identity, new URL(gatewayUrl));
+
+    await expect(
+      agent.update(canisterId, {
+        methodName: "some_other_method",
+        arg: new Uint8Array(),
+        effectiveCanisterId: canisterId,
+      })
+    ).rejects.toThrow("UnsupportedCanisterCall");
+  });
+
+  it("should throw on canister rejection via update()", async () => {
+    const agent = await Icrc21Agent.create(identity, new URL(gatewayUrl));
+
+    const arg = IDL.encode(
+      [IDL.Text, IDL.Text, IDL.Nat64],
+      ["ICP", "ckBTC", BigInt(2_000_000_000)]
+    );
+
+    await expect(
+      agent.update(canisterId, {
+        methodName: "swap",
+        arg: new Uint8Array(arg),
+        effectiveCanisterId: canisterId,
+      })
+    ).rejects.toThrow("rejection");
+  });
+
   it("should invoke flagUpcomingIcrc21 on the identity", async () => {
     const freshIdentity = new MockIcrc21Identity();
     const agent = await Icrc21Agent.create(freshIdentity, new URL(gatewayUrl));
@@ -167,7 +217,7 @@ describe("Icrc21Agent", () => {
     ).rejects.toThrow("UnsupportedCanisterCall");
   });
 
-  it("should throw when the canister call is rejected", async () => {
+  it("should throw when the canister call is rejected via call()", async () => {
     const agent = await Icrc21Agent.create(identity, new URL(gatewayUrl));
 
     const arg = IDL.encode(

@@ -10,6 +10,8 @@ import type {
   QueryFields,
   ReadStateOptions,
   ReadStateResponse,
+  UpdateResult,
+  PollingOptions,
 } from "@icp-sdk/core/agent";
 import type { JsonObject } from "@icp-sdk/core/candid";
 import {
@@ -109,14 +111,15 @@ export class Icrc21Agent implements Agent {
     return this.signingAgent.getPrincipal();
   }
 
-  /** Executes a canister call through the ICRC-21 consent message flow. */
-  async call(
+  /** Executes an update call through the ICRC-21 consent message flow and returns the certified reply. */
+  async update(
     canisterIdArg: Principal | string,
-    fields: CallOptions
-  ): Promise<SubmitResponse> {
+    fields: CallOptions,
+    pollingOptions?: PollingOptions
+  ): Promise<UpdateResult> {
     const canisterId = Principal.from(canisterIdArg);
 
-    // Fetch the consent message from the canister
+    // Fetch the consent message from the canister.
     // Returns the request and the certificate that contains the response.
     const { request, certificate } = await this.fetchConsentMessage(
       canisterId,
@@ -127,16 +130,76 @@ export class Icrc21Agent implements Agent {
     this.identity.flagUpcomingIcrc21(request, certificate);
 
     // Send the canister call via the signing agent which triggers ICRC-21 approval.
+    return this.signingAgent.update(
+      canisterId,
+      {
+        methodName: fields.methodName,
+        arg: fields.arg,
+        effectiveCanisterId: fields.effectiveCanisterId,
+      },
+      pollingOptions
+    );
+  }
+
+  /** Required by the Agent interface. Prefer {@link update} for direct usage. */
+  async call(
+    canisterIdArg: Principal | string,
+    fields: CallOptions
+  ): Promise<SubmitResponse> {
+    const canisterId = Principal.from(canisterIdArg);
+
+    const { request, certificate } = await this.fetchConsentMessage(
+      canisterId,
+      fields
+    );
+    this.identity.flagUpcomingIcrc21(request, certificate);
+
     const result = await this.signingAgent.call(canisterId, {
       methodName: fields.methodName,
       arg: fields.arg,
       effectiveCanisterId: fields.effectiveCanisterId,
     });
 
-    // Verify the call wasn't rejected by the canister
-    this.checkForRejection(await this.certificateLookup(result, canisterId));
+    await this.checkForRejection(result, canisterId);
 
     return result;
+  }
+
+  /** Verifies the call response certificate and throws if the canister rejected the call. */
+  private async checkForRejection(
+    response: SubmitResponse,
+    canisterId: Principal
+  ): Promise<void> {
+    const rootKey = this.anonymousAgent.rootKey;
+    if (!rootKey) return;
+
+    const body = response.response.body as v4ResponseBody | undefined;
+    if (!body?.certificate) return;
+
+    const cert = await Certificate.create({
+      certificate: new Uint8Array(body.certificate),
+      rootKey,
+      principal: { canisterId },
+    });
+
+    const requestId = response.requestId;
+    const lookup = (field: string) =>
+      lookupResultToBuffer(
+        cert.lookup_path([
+          new TextEncoder().encode("request_status"),
+          requestId,
+          new TextEncoder().encode(field),
+        ])
+      );
+
+    const statusBytes = lookup("status");
+    if (statusBytes && new TextDecoder().decode(statusBytes) === "rejected") {
+      const rejectMsgBytes = lookup("reject_message");
+      const rejectMsg = rejectMsgBytes
+        ? new TextDecoder().decode(rejectMsgBytes)
+        : "Unknown rejection";
+      throw new Error(`Call rejected: ${rejectMsg}`);
+    }
   }
 
   /**
@@ -168,84 +231,27 @@ export class Icrc21Agent implements Agent {
       ]
     );
 
-    const consentMessageResponse = await this.anonymousAgent.call(canisterId, {
+    // Use update() to get the certified result directly.
+    // This handles polling and throws on rejection automatically.
+    const result = await this.anonymousAgent.update(canisterId, {
       methodName: "icrc21_canister_call_consent_message",
       arg: consentMessageRequest,
       effectiveCanisterId: canisterId,
     });
 
-    if (!consentMessageResponse.response.body) {
-      throw new Error("No response body from consent message call");
-    }
+    // Check for ICRC-21 specific errors in the reply
+    this.checkForIcrc21Error(result.reply);
 
-    const certificate = new Uint8Array(
-      (consentMessageResponse.response.body as v4ResponseBody).certificate
-    );
-
-    const lookup = await this.certificateLookup(
-      consentMessageResponse,
-      canisterId
-    );
-    this.checkForRejection(lookup);
-    this.checkForIcrc21Error(lookup);
-
-    const request = consentMessageResponse.requestDetails;
+    const request = result.requestDetails;
     if (!request) {
       throw new Error("Missing request details from consent message call");
     }
 
-    return { request, certificate };
-  }
-
-  /** Returns a lookup function for reading fields from a call response certificate. */
-  private async certificateLookup(
-    response: SubmitResponse,
-    canisterId: Principal
-  ): Promise<(field: string) => Uint8Array | undefined> {
-    const rootKey = this.anonymousAgent.rootKey;
-    if (!rootKey) return () => undefined;
-
-    const body = response.response.body as v4ResponseBody | undefined;
-    if (!body?.certificate) return () => undefined;
-
-    const cert = await Certificate.create({
-      certificate: new Uint8Array(body.certificate),
-      rootKey,
-      principal: { canisterId },
-    });
-
-    const requestId = response.requestId;
-    return (field: string) =>
-      lookupResultToBuffer(
-        cert.lookup_path([
-          new TextEncoder().encode("request_status"),
-          requestId,
-          new TextEncoder().encode(field),
-        ])
-      );
-  }
-
-  /** Throws if the certificate indicates the call was rejected. */
-  private checkForRejection(
-    lookup: (field: string) => Uint8Array | undefined
-  ): void {
-    const statusBytes = lookup("status");
-    if (statusBytes && new TextDecoder().decode(statusBytes) === "rejected") {
-      const rejectMsgBytes = lookup("reject_message");
-      const rejectMsg = rejectMsgBytes
-        ? new TextDecoder().decode(rejectMsgBytes)
-        : "Unknown rejection";
-      throw new Error(`Call rejected: ${rejectMsg}`);
-    }
+    return { request, certificate: result.rawCertificate };
   }
 
   /** Throws if the consent message response contains an ICRC-21 error. */
-  private checkForIcrc21Error(
-    lookup: (field: string) => Uint8Array | undefined
-  ): void {
-    const replyBytes = lookup("reply");
-    if (!replyBytes) return;
-
+  private checkForIcrc21Error(replyBytes: Uint8Array): void {
     const [decoded] = IDL.decode(
       [icrc21_consent_message_response],
       replyBytes

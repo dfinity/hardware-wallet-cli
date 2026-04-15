@@ -40,13 +40,7 @@ import {
   hexStringToBytes,
 } from "./utils";
 import { CANDID_PARSER_VERSION, HOTKEY_PERMISSIONS } from "./constants";
-import {
-  AnonymousIdentity,
-  Identity,
-  Certificate,
-  lookupResultToBuffer,
-} from "@icp-sdk/core/agent";
-import type { v4ResponseBody } from "@icp-sdk/core/agent";
+import { AnonymousIdentity, Identity } from "@icp-sdk/core/agent";
 import {
   SnsGovernanceCanister,
   SnsGovernanceDid,
@@ -865,42 +859,15 @@ async function icrc21Call({
 
   const icrc21Agent = await Icrc21Agent.create(identity, new URL(network));
 
-  const submitResponse = await icrc21Agent.call(canisterId, {
+  const result = await icrc21Agent.update(canisterId, {
     methodName: method,
     arg: new Uint8Array(hexStringToBytes(arg)),
     effectiveCanisterId: canisterId,
   });
 
-  const requestId = submitResponse.requestId;
-  ok(`Request ID: ${bytesToHexString(Array.from(requestId))}`);
-
-  // Extract reply from the response certificate
-  const body = submitResponse.response.body as v4ResponseBody | undefined;
-  if (body?.certificate) {
-    const certBytes = new Uint8Array(body.certificate);
-    const rootKey = icrc21Agent.rootKey;
-    if (rootKey) {
-      const cert = await Certificate.create({
-        certificate: certBytes,
-        rootKey,
-        principal: { canisterId },
-      });
-      const replyBytes = lookupResultToBuffer(
-        cert.lookup_path([
-          new TextEncoder().encode("request_status"),
-          requestId,
-          new TextEncoder().encode("reply"),
-        ])
-      );
-      if (replyBytes) {
-        const replyHex = bytesToHexString(
-          Array.from(new Uint8Array(replyBytes))
-        );
-        ok(`Reply: ${replyHex}`);
-        console.log(`Decode with: didc decode ${replyHex}`);
-      }
-    }
-  }
+  const replyHex = bytesToHexString(Array.from(result.reply));
+  ok(`Reply: ${replyHex}`);
+  console.log(`Decode with: didc decode ${replyHex}`);
 }
 
 async function main() {
