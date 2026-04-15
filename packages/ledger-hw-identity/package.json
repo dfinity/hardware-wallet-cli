@@ -1,0 +1,39 @@
+{
+  "name": "@dfinity/ledger-hw-identity",
+  "version": "0.1.0",
+  "description": "Ledger hardware wallet identity for the Internet Computer",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dfinity/utils": "^4.1.0",
+    "@icp-sdk/core": "^5.0.0",
+    "@ledgerhq/hw-transport-node-hid-noevents": "^6.3.0",
+    "@ledgerhq/hw-transport-webhid": "^6.27.1",
+    "@zondax/ledger-icp": "^3.2.6"
+  },
+  "peerDependencies": {
+    "node-hid": "^3.2.0"
+  },
+  "peerDependenciesMeta": {
+    "node-hid": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "ISC"
+}

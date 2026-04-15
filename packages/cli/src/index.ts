@@ -76,8 +76,8 @@ import {
 // Add polyfill for `window` for `TransportWebHID` checks to work.
 import "node-window-polyfill/register";
 
-import { Secp256k1PublicKey } from "./ledger/secp256k1";
-import { Icrc21Agent } from "./icrc21-agent";
+import { Secp256k1PublicKey } from "@icp-sdk/core/identity/secp256k1";
+import { Icrc21Agent } from "@dfinity/icrc21-agent";
 
 // Set window.fetch to Node's native fetch (required by agent library)
 (window as any).fetch = fetch;
@@ -416,7 +416,9 @@ async function showInfo(showOnDevice?: boolean) {
   log(
     chalk.bold(`Address (${identity.derivePath}): `) + accountIdentifier.toHex()
   );
-  log(chalk.bold("Public key: ") + publicKey.toHex());
+  log(
+    chalk.bold("Public key: ") + bytesToHexString(Array.from(publicKey.toRaw()))
+  );
 
   if (showOnDevice) {
     log("Displaying the principal and the address on the device...");
@@ -795,7 +797,7 @@ async function claimNeurons() {
   const identity = await getIdentity();
 
   const publicKey = identity.getPublicKey() as Secp256k1PublicKey;
-  const hexPubKey = publicKey.toHex();
+  const hexPubKey = bytesToHexString(Array.from(publicKey.toRaw()));
 
   const governance = NnsGenesisTokenCanister.create({
     agent: await getCurrentAgent(identity),

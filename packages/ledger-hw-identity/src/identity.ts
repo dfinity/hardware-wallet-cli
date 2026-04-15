@@ -17,7 +17,7 @@ const LedgerApp =
   LedgerAppModule;
 type ResponseSign = LedgerAppModule.ResponseSign;
 type TokenInfo = LedgerAppModule.TokenInfo;
-import { Secp256k1PublicKey } from "./secp256k1";
+import { Secp256k1PublicKey } from "@icp-sdk/core/identity/secp256k1";
 
 // @ts-ignore (no types are available)
 import * as TransportWebHIDModule from "@ledgerhq/hw-transport-webhid";
@@ -35,7 +35,13 @@ const TransportNodeHidNoEvents =
 type Transport = typeof TransportWebHID;
 
 import { isNullish, nonNullish } from "@dfinity/utils";
-import { bytesToHexString } from "../utils";
+
+// Convert a byte array to a hex string
+const bytesToHexString = (bytes: number[]): string =>
+  bytes.reduce(
+    (str, byte) => `${str}${byte.toString(16).padStart(2, "0")}`,
+    ""
+  );
 
 // Set global.fetch for agent-js compatibility (Node 18+ has native fetch)
 (global as any).fetch = fetch;
@@ -155,7 +161,7 @@ export class LedgerIdentity extends SignIdentity {
     const principal = (resp as unknown as { principalText: string })
       .principalText;
     const publicKey = Secp256k1PublicKey.fromRaw(
-      new Uint8Array(resp.publicKey).buffer
+      new Uint8Array(resp.publicKey)
     );
 
     if (
