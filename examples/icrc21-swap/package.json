@@ -1,0 +1,18 @@
+{
+  "name": "example-icrc21-swap",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "dev": "node esbuild.mjs --serve"
+  },
+  "dependencies": {
+    "@dfinity/icrc21-agent": "workspace:*",
+    "@dfinity/ledger-wallet-identity": "workspace:*",
+    "@icp-sdk/core": "^5.0.0"
+  },
+  "devDependencies": {
+    "buffer": "^6.0.3",
+    "esbuild": "0.25.0"
+  }
+}

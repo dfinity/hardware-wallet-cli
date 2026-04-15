@@ -30,7 +30,7 @@ import {
   assertLedgerVersion,
   hasValidStake,
   isCurrentVersionSmallerThan,
-  getLedgerIdentity,
+  getLedgerWalletIdentity,
   getAgent,
   subaccountToHexString,
   nowInBigIntNanoSeconds,
@@ -97,7 +97,7 @@ const MAINNET_LEDGER_CANISTER_ID = Principal.fromText(
 
 async function getIdentity() {
   const principalPath = tryParseInt(program.opts().principal);
-  return getLedgerIdentity(principalPath);
+  return getLedgerWalletIdentity(principalPath);
 }
 
 async function getCurrentAgent(identity: Identity) {

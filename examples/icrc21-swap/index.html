@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ICRC-21 Swap Example</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 480px;
+        margin: 60px auto;
+        padding: 0 20px;
+      }
+      h1 {
+        font-size: 1.4rem;
+      }
+      label {
+        display: block;
+        margin-top: 12px;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      input {
+        width: 100%;
+        padding: 8px;
+        margin-top: 4px;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      button {
+        margin-top: 20px;
+        padding: 10px 24px;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      #status {
+        margin-top: 16px;
+        color: #666;
+      }
+      #result {
+        margin-top: 16px;
+        color: #1a7f37;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>ICRC-21 Swap Example</h1>
+    <p>
+      Demonstrates making an ICRC-21 consent message call using a Ledger
+      hardware wallet. Requires Chrome/Edge and a connected Ledger with the
+      Internet Computer app open.
+    </p>
+
+    <label for="from">From token</label>
+    <input id="from" type="text" value="ckBTC" />
+
+    <label for="to">To token</label>
+    <input id="to" type="text" value="ICP" />
+
+    <label for="amount">Amount</label>
+    <input id="amount" type="number" value="0.1" step="any" />
+
+    <button id="swap-btn">Swap</button>
+
+    <div id="status"></div>
+    <div id="result"></div>
+
+    <script type="module" src="dist/bundle.js"></script>
+  </body>
+</html>
