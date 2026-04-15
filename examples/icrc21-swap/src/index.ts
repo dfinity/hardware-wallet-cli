@@ -57,7 +57,7 @@ swapBtn.addEventListener("click", async () => {
     setStatus("Approve the transaction on your Ledger device...");
     const result = await actor.swap(from, to, amount);
 
-    setResult(result);
+    setResult(`Swapped ${amountFloat} ${from} for ${to}`);
   } catch (err) {
     setError(err instanceof Error ? err.message : String(err));
   } finally {

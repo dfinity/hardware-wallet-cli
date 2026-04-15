@@ -1,6 +1,6 @@
 # ICRC-21 Swap Example
 
-A minimal browser app that performs a token swap on the [Internet Computer](https://internetcomputer.org/) using a Ledger hardware wallet with [ICRC-21](https://github.com/dfinity/wg-identity-authentication/blob/main/topics/ICRC-21/icrc_21_consent_msg.md) consent messages.
+A minimal browser app that **simulates** a token swap on the [Internet Computer](https://internetcomputer.org/) using a Ledger hardware wallet with [ICRC-21](https://github.com/dfinity/wg-identity-authentication/blob/main/topics/ICRC-21/icrc_21_consent_msg.md) consent messages. No real tokens are transferred — the canister returns a mock result to demonstrate the ICRC-21 consent flow.
 
 The app connects to canister [`xxydu-fqaaa-aaaam-ad2ka-cai`](https://dashboard.internetcomputer.org/canister/xxydu-fqaaa-aaaam-ad2ka-cai) on IC mainnet, using [`@dfinity/ledger-wallet-identity`](../../packages/ledger-wallet-identity/) and [`@dfinity/icrc21-agent`](../../packages/icrc21-agent/).
 
