@@ -17,11 +17,24 @@
     "build": "tsc -b",
     "typecheck": "tsc --noEmit"
   },
+  "keywords": [
+    "dfinity",
+    "internet-computer",
+    "icrc-21",
+    "consent-message",
+    "ledger",
+    "icp"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dfinity/hardware-wallet-cli.git",
+    "directory": "packages/icrc21-agent"
+  },
   "dependencies": {
     "@icp-sdk/core": "^5.0.0"
   },
   "publishConfig": {
     "access": "public"
   },
-  "license": "ISC"
+  "license": "Apache-2.0"
 }

@@ -19,22 +19,20 @@ type ResponseSign = LedgerAppModule.ResponseSign;
 type TokenInfo = LedgerAppModule.TokenInfo;
 import { Secp256k1PublicKey } from "@icp-sdk/core/identity/secp256k1";
 
-// @ts-ignore (no types are available)
-import * as TransportWebHIDModule from "@ledgerhq/hw-transport-webhid";
-import * as TransportNodeHidNoEventsModule from "@ledgerhq/hw-transport-node-hid-noevents";
+import type { LedgerTransport, TransportFactory } from "./transport";
 
-// Handle ESM/CJS interop - ESM may have nested default exports
-const TransportWebHID =
-  (TransportWebHIDModule as any).default?.default ||
-  (TransportWebHIDModule as any).default ||
-  TransportWebHIDModule;
-const TransportNodeHidNoEvents =
-  (TransportNodeHidNoEventsModule as any).default?.default ||
-  (TransportNodeHidNoEventsModule as any).default ||
-  TransportNodeHidNoEventsModule;
-type Transport = typeof TransportWebHID;
+export interface LedgerWalletIdentityOptions {
+  /** A function that opens a connection to the Ledger device.
+   *  Defaults to WebHID (browser). For Node.js, pass `createNodeHidTransport`
+   *  from `@dfinity/ledger-wallet-identity/node`. */
+  transportFactory?: TransportFactory;
+  /** BIP-44 derivation path. Defaults to `m/44'/223'/0'/0/0`. */
+  derivePath?: string;
+}
 
-import { isNullish, nonNullish } from "@dfinity/utils";
+const isNullish = (value: unknown): value is null | undefined =>
+  value === null || value === undefined;
+const nonNullish = <T>(value: T): value is NonNullable<T> => !isNullish(value);
 
 // Convert a byte array to a hex string
 const bytesToHexString = (bytes: number[]): string =>
@@ -42,9 +40,6 @@ const bytesToHexString = (bytes: number[]): string =>
     (str, byte) => `${str}${byte.toString(16).padStart(2, "0")}`,
     ""
   );
-
-// Set global.fetch for agent-js compatibility (Node 18+ has native fetch)
-(global as any).fetch = fetch;
 
 /**
  * Convert the HttpAgentRequest body into cbor which can be signed by the Ledger Hardware Wallet.
@@ -57,7 +52,7 @@ function _prepareCborForLedger(request: ReadRequest | CallRequest): Uint8Array {
 /**
  * A Hardware Ledger Internet Computer Agent identity.
  */
-export class LedgerIdentity extends SignIdentity {
+export class LedgerWalletIdentity extends SignIdentity {
   // A flag to signal that the next transaction to be signed will be
   // a "stake neuron" transaction.
   private _neuronStakeFlag = false;
@@ -69,17 +64,22 @@ export class LedgerIdentity extends SignIdentity {
   private _icrc21ConsentMessageResponseCertificate: Uint8Array | null = null;
 
   /**
-   * Create a LedgerIdentity using the Web USB transport.
-   * @param derivePath The derivation path.
+   * Create a LedgerWalletIdentity.
    */
   public static async create(
-    derivePath = `m/44'/223'/0'/0/0`
-  ): Promise<LedgerIdentity> {
-    const [app, transport] = await this._connect();
+    options: LedgerWalletIdentityOptions = {}
+  ): Promise<LedgerWalletIdentity> {
+    const derivePath = options.derivePath ?? `m/44'/223'/0'/0/0`;
+    let transportFactory = options.transportFactory;
+    if (!transportFactory) {
+      const { createWebHidTransport } = await import("./transport-webhid");
+      transportFactory = createWebHidTransport;
+    }
+    const [app, transport] = await this._connect(transportFactory);
 
     try {
       const publicKey = await this._fetchPublicKeyFromDevice(app, derivePath);
-      return new this(derivePath, publicKey);
+      return new this(transportFactory, derivePath, publicKey);
     } finally {
       // Always close the transport.
       transport.close();
@@ -87,6 +87,7 @@ export class LedgerIdentity extends SignIdentity {
   }
 
   private constructor(
+    private readonly _transportFactory: TransportFactory,
     public readonly derivePath: string,
     private readonly _publicKey: Secp256k1PublicKey
   ) {
@@ -96,32 +97,11 @@ export class LedgerIdentity extends SignIdentity {
   /**
    * Connect to a ledger hardware wallet.
    */
-  private static async _connect(): Promise<[typeof LedgerApp, Transport]> {
-    async function getTransport() {
-      if (await TransportWebHID.isSupported()) {
-        // We're in a web browser.
-        return TransportWebHID.create();
-      } else if (await TransportNodeHidNoEvents.isSupported()) {
-        // CLI environment.
-        // Use list() + open() instead of create() to work around a bug in the
-        // @ledgerhq library that throws "Cannot access 'X' before initialization".
-        const devices = await TransportNodeHidNoEvents.list();
-        if (devices.length === 0) {
-          const err = new Error("No Ledger device found") as Error & {
-            id: string;
-          };
-          err.id = "NoDeviceFound";
-          throw err;
-        }
-        return TransportNodeHidNoEvents.open(devices[0]);
-      } else {
-        // Unknown environment.
-        throw Error();
-      }
-    }
-
+  private static async _connect(
+    transportFactory: TransportFactory
+  ): Promise<[typeof LedgerApp, LedgerTransport]> {
     try {
-      const transport = await getTransport();
+      const transport = await transportFactory();
       const app = new LedgerApp(transport);
       return [app, transport];
     } catch (err) {
@@ -233,7 +213,7 @@ export class LedgerIdentity extends SignIdentity {
     return await this._executeWithApp(async (app: typeof LedgerApp) => {
       const resp: ResponseSign = await app.sign(
         this.derivePath,
-        Buffer.from(blob),
+        new Uint8Array(blob),
         this._neuronStakeFlag ? 1 : 0
       );
 
@@ -356,14 +336,17 @@ export class LedgerIdentity extends SignIdentity {
   private async _executeWithApp<T>(
     func: (app: typeof LedgerApp) => Promise<T>
   ): Promise<T> {
-    const [app, transport] = await LedgerIdentity._connect();
+    const [app, transport] = await LedgerWalletIdentity._connect(
+      this._transportFactory
+    );
 
     try {
       // Verify that the public key of the device matches the public key of this identity.
-      const devicePublicKey = await LedgerIdentity._fetchPublicKeyFromDevice(
-        app,
-        this.derivePath
-      );
+      const devicePublicKey =
+        await LedgerWalletIdentity._fetchPublicKeyFromDevice(
+          app,
+          this.derivePath
+        );
       if (JSON.stringify(devicePublicKey) !== JSON.stringify(this._publicKey)) {
         throw new Error(
           "Found unexpected public key. Are you sure you're using the right wallet?"

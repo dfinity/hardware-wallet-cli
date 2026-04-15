@@ -1,4 +1,7 @@
-import { LedgerIdentity } from "@dfinity/ledger-hw-identity";
+import {
+  LedgerWalletIdentity,
+  createNodeHidTransport,
+} from "@dfinity/ledger-wallet-identity/node";
 import { arrayOfNumberToUint8Array, smallerVersion } from "@dfinity/utils";
 import type { NeuronInfo } from "@icp-sdk/canisters/nns";
 import {
@@ -22,11 +25,11 @@ export const assertLedgerVersion = async ({
   identity,
   minVersion,
 }: {
-  identity: LedgerIdentity;
+  identity: LedgerWalletIdentity;
   minVersion: string;
 }): Promise<void> => {
-  // Ignore when identity not LedgerIdentity
-  if (!(identity instanceof LedgerIdentity)) {
+  // Ignore when identity not LedgerWalletIdentity
+  if (!(identity instanceof LedgerWalletIdentity)) {
     return;
   }
 
@@ -52,11 +55,11 @@ export const isCurrentVersionSmallerThan = async ({
   identity,
   version,
 }: {
-  identity: LedgerIdentity;
+  identity: LedgerWalletIdentity;
   version: string;
 }): Promise<boolean> => {
-  // False if identity not LedgerIdentity
-  if (!(identity instanceof LedgerIdentity)) {
+  // False if identity not LedgerWalletIdentity
+  if (!(identity instanceof LedgerWalletIdentity)) {
     return false;
   }
 
@@ -66,7 +69,7 @@ export const isCurrentVersionSmallerThan = async ({
 };
 
 export const isCurrentVersionSmallerThanFullCandidParser = async (
-  identity: LedgerIdentity
+  identity: LedgerWalletIdentity
 ): Promise<boolean> => {
   return isCurrentVersionSmallerThan({
     identity,
@@ -82,15 +85,18 @@ export const hasValidStake = (neuron: NeuronInfo): boolean =>
       BigInt(DEFAULT_TRANSACTION_FEE_E8S)
     : false;
 
-export async function getLedgerIdentity(
+export async function getLedgerWalletIdentity(
   principalPath: number
-): Promise<LedgerIdentity> {
+): Promise<LedgerWalletIdentity> {
   if (principalPath < 0 || principalPath > 255) {
     throw new InvalidArgumentError(
       "Principal path must be between 0 and 255 inclusive."
     );
   }
-  return LedgerIdentity.create(`m/44'/223'/0'/0/${principalPath}`);
+  return LedgerWalletIdentity.create({
+    transportFactory: createNodeHidTransport,
+    derivePath: `m/44'/223'/0'/0/${principalPath}`,
+  });
 }
 
 export async function getAgent(

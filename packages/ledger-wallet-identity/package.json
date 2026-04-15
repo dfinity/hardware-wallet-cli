@@ -1,0 +1,55 @@
+{
+  "name": "@dfinity/ledger-wallet-identity",
+  "version": "0.1.0",
+  "description": "Ledger hardware wallet identity for the Internet Computer",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "dfinity",
+    "internet-computer",
+    "ledger",
+    "hardware-wallet",
+    "identity",
+    "icp"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dfinity/hardware-wallet-cli.git",
+    "directory": "packages/ledger-wallet-identity"
+  },
+  "dependencies": {
+    "@icp-sdk/core": "^5.0.0",
+    "@ledgerhq/hw-transport-node-hid-noevents": "^6.34.0",
+    "@ledgerhq/hw-transport-webhid": "^6.34.0",
+    "@zondax/ledger-icp": "^3.2.6"
+  },
+  "peerDependencies": {
+    "node-hid": "^3.2.0"
+  },
+  "peerDependenciesMeta": {
+    "node-hid": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0"
+}

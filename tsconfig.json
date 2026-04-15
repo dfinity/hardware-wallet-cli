@@ -2,7 +2,7 @@
   "files": [],
   "references": [
     { "path": "packages/icrc21-agent" },
-    { "path": "packages/ledger-hw-identity" },
+    { "path": "packages/ledger-wallet-identity" },
     { "path": "packages/cli" }
   ]
 }
