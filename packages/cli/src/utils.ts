@@ -1,4 +1,7 @@
-import { LedgerWalletIdentity, createNodeHidTransport } from "@dfinity/ledger-wallet-identity/node";
+import {
+  LedgerWalletIdentity,
+  createNodeHidTransport,
+} from "@dfinity/ledger-wallet-identity/node";
 import { arrayOfNumberToUint8Array, smallerVersion } from "@dfinity/utils";
 import type { NeuronInfo } from "@icp-sdk/canisters/nns";
 import {

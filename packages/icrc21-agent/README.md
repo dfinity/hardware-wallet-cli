@@ -91,12 +91,12 @@ const response = await agent.call(canisterId, {
 
 The agent will throw descriptive errors if the canister returns an ICRC-21 error:
 
-| Error variant                | Meaning                                            |
-| ---------------------------- | -------------------------------------------------- |
-| `UnsupportedCanisterCall`    | The canister does not support the requested method. |
-| `ConsentMessageUnavailable`  | The consent message could not be produced.         |
-| `InsufficientPayment`       | The call requires payment.                         |
-| `GenericError`               | An unspecified error with a description and code.  |
+| Error variant               | Meaning                                             |
+| --------------------------- | --------------------------------------------------- |
+| `UnsupportedCanisterCall`   | The canister does not support the requested method. |
+| `ConsentMessageUnavailable` | The consent message could not be produced.          |
+| `InsufficientPayment`       | The call requires payment.                          |
+| `GenericError`              | An unspecified error with a description and code.   |
 
 ## Learn more
 

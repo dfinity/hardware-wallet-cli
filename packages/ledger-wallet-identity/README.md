@@ -35,15 +35,22 @@ const agent = new HttpAgent({ identity });
 Import from `@dfinity/ledger-wallet-identity/node` and pass `createNodeHidTransport`:
 
 ```typescript
-import { LedgerWalletIdentity, createNodeHidTransport } from "@dfinity/ledger-wallet-identity/node";
+import {
+  LedgerWalletIdentity,
+  createNodeHidTransport,
+} from "@dfinity/ledger-wallet-identity/node";
 
-const identity = await LedgerWalletIdentity.create({ transportFactory: createNodeHidTransport });
+const identity = await LedgerWalletIdentity.create({
+  transportFactory: createNodeHidTransport,
+});
 ```
 
 ### Custom derivation path
 
 ```typescript
-const identity = await LedgerWalletIdentity.create({ derivePath: "m/44'/223'/0'/0/1" });
+const identity = await LedgerWalletIdentity.create({
+  derivePath: "m/44'/223'/0'/0/1",
+});
 ```
 
 ### ICRC-21 consent message signing

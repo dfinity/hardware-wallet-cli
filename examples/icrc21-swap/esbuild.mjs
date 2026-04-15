@@ -12,7 +12,7 @@ const buildOptions = {
   // @zondax/ledger-icp uses Node.js Buffer — inject a browser polyfill
   inject: ["./buffer-shim.mjs"],
   define: {
-    "global": "globalThis",
+    global: "globalThis",
   },
 };
 

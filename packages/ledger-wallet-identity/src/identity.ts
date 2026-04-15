@@ -336,14 +336,17 @@ export class LedgerWalletIdentity extends SignIdentity {
   private async _executeWithApp<T>(
     func: (app: typeof LedgerApp) => Promise<T>
   ): Promise<T> {
-    const [app, transport] = await LedgerWalletIdentity._connect(this._transportFactory);
+    const [app, transport] = await LedgerWalletIdentity._connect(
+      this._transportFactory
+    );
 
     try {
       // Verify that the public key of the device matches the public key of this identity.
-      const devicePublicKey = await LedgerWalletIdentity._fetchPublicKeyFromDevice(
-        app,
-        this.derivePath
-      );
+      const devicePublicKey =
+        await LedgerWalletIdentity._fetchPublicKeyFromDevice(
+          app,
+          this.derivePath
+        );
       if (JSON.stringify(devicePublicKey) !== JSON.stringify(this._publicKey)) {
         throw new Error(
           "Found unexpected public key. Are you sure you're using the right wallet?"
