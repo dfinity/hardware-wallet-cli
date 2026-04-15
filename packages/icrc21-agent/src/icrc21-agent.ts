@@ -5,6 +5,7 @@ import type {
   Identity,
   SubmitResponse,
   CallRequest,
+  v4ResponseBody,
   ApiQueryResponse,
   QueryFields,
   ReadStateOptions,
@@ -13,7 +14,12 @@ import type {
   PollingOptions,
 } from "@icp-sdk/core/agent";
 import type { JsonObject } from "@icp-sdk/core/candid";
-import { HttpAgent, AnonymousIdentity } from "@icp-sdk/core/agent";
+import {
+  HttpAgent,
+  AnonymousIdentity,
+  Certificate,
+  lookupResultToBuffer,
+} from "@icp-sdk/core/agent";
 import { IDL } from "@icp-sdk/core/candid";
 import type { Icrc21Identity } from "./icrc21-identity";
 
@@ -140,12 +146,60 @@ export class Icrc21Agent implements Agent {
     canisterIdArg: Principal | string,
     fields: CallOptions
   ): Promise<SubmitResponse> {
-    const result = await this.update(canisterIdArg, fields);
-    return {
-      requestId: result.requestDetails?.request_id ?? (new Uint8Array() as any),
-      response: result.callResponse,
-      requestDetails: result.requestDetails,
-    };
+    const canisterId = Principal.from(canisterIdArg);
+
+    const { request, certificate } = await this.fetchConsentMessage(
+      canisterId,
+      fields
+    );
+    this.identity.flagUpcomingIcrc21(request, certificate);
+
+    const result = await this.signingAgent.call(canisterId, {
+      methodName: fields.methodName,
+      arg: fields.arg,
+      effectiveCanisterId: fields.effectiveCanisterId,
+    });
+
+    await this.checkForRejection(result, canisterId);
+
+    return result;
+  }
+
+  /** Verifies the call response certificate and throws if the canister rejected the call. */
+  private async checkForRejection(
+    response: SubmitResponse,
+    canisterId: Principal
+  ): Promise<void> {
+    const rootKey = this.anonymousAgent.rootKey;
+    if (!rootKey) return;
+
+    const body = response.response.body as v4ResponseBody | undefined;
+    if (!body?.certificate) return;
+
+    const cert = await Certificate.create({
+      certificate: new Uint8Array(body.certificate),
+      rootKey,
+      principal: { canisterId },
+    });
+
+    const requestId = response.requestId;
+    const lookup = (field: string) =>
+      lookupResultToBuffer(
+        cert.lookup_path([
+          new TextEncoder().encode("request_status"),
+          requestId,
+          new TextEncoder().encode(field),
+        ])
+      );
+
+    const statusBytes = lookup("status");
+    if (statusBytes && new TextDecoder().decode(statusBytes) === "rejected") {
+      const rejectMsgBytes = lookup("reject_message");
+      const rejectMsg = rejectMsgBytes
+        ? new TextDecoder().decode(rejectMsgBytes)
+        : "Unknown rejection";
+      throw new Error(`Call rejected: ${rejectMsg}`);
+    }
   }
 
   /**

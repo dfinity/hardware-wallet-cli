@@ -217,7 +217,7 @@ describe("Icrc21Agent", () => {
     ).rejects.toThrow("UnsupportedCanisterCall");
   });
 
-  it("should throw when the canister call is rejected", async () => {
+  it("should throw when the canister call is rejected via call()", async () => {
     const agent = await Icrc21Agent.create(identity, new URL(gatewayUrl));
 
     const arg = IDL.encode(
@@ -231,7 +231,7 @@ describe("Icrc21Agent", () => {
         arg: new Uint8Array(arg),
         effectiveCanisterId: canisterId,
       })
-    ).rejects.toThrow("rejection");
+    ).rejects.toThrow("Call rejected");
   });
 
   it("should return the signing identity's principal", async () => {
