@@ -66,7 +66,7 @@ importers:
         specifier: ^5.2.1
         version: 5.2.1
       "@zondax/ledger-icp":
-        specifier: ^3.2.6
+        specifier: ^3.2.8
         version: 3.2.8
       chalk:
         specifier: ^4.1.2
