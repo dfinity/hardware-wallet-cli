@@ -57,7 +57,7 @@ See the [ICRC-21 swap example](https://github.com/dfinity/hardware-wallet-cli/tr
 
 ### Direct call
 
-You can also use `Icrc21Agent.call()` directly without an Actor.
+You can also use `Icrc21Agent.update()` directly without an Actor. This returns the certified reply bytes directly.
 
 ```typescript
 import { Icrc21Agent } from "@dfinity/icrc21-agent";
@@ -74,16 +74,18 @@ const arg = IDL.encode(
   ["ckBTC", "ICP", 10_000_000n]
 );
 
-const response = await agent.call(canisterId, {
+const result = await agent.update(canisterId, {
   methodName: "swap",
   arg,
   effectiveCanisterId: canisterId,
 });
+
+const reply = IDL.decode([IDL.Text], result.reply)[0];
 ```
 
 ## Limitations
 
-- Only **update calls** (`call()`) are supported. `query()`, `readState()`, and `status()` are not implemented.
+- Only **update calls** (`update()`, `call()`) are supported. `query()`, `readState()`, and `status()` are not implemented.
 - Consent messages are requested in English with `FieldsDisplay` format (a constraint of current Ledger firmware).
 - The target canister must implement the [`icrc21_canister_call_consent_message`](https://github.com/dfinity/wg-identity-authentication/blob/main/topics/ICRC-21/icrc_21_consent_msg.md) method.
 
