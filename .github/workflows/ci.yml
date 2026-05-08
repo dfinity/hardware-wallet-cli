@@ -55,13 +55,7 @@ jobs:
   checks-pass:
     # Always run this job!
     if: always()
-    needs:
-      [
-        build,
-        typecheck,
-        format,
-        test,
-      ]
+    needs: [build, typecheck, format, test]
     runs-on: ubuntu-latest
     steps:
       - run: |
