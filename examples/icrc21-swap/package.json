@@ -13,6 +13,6 @@
   },
   "devDependencies": {
     "buffer": "^6.0.3",
-    "esbuild": "0.25.0"
+    "esbuild": "0.28.1"
   }
 }
